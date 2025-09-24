@@ -1,0 +1,114 @@
+{
+  "AVRUPA": [
+    {
+      "id": "1",
+      "name": "ATAKÖY",
+      "color": "#4A90E2",
+      "image": "atakoy.jpg"
+    },
+    {
+      "id": "2",
+      "name": "ARNAVUTKÖY",
+      "color": "#5CB85C",
+      "image": "arnavutkoy.jpg"
+    },
+    {
+      "id": "3",
+      "name": "BAHÇEKÖY",
+      "color": "#F0AD4E",
+      "image": "bahcekoy.jpg"
+    },
+    {
+      "id": "4",
+      "name": "BEBEK",
+      "color": "#D9534F",
+      "image": "bebek.jpg"
+    },
+    {
+      "id": "5",
+      "name": "EMİRGAN",
+      "color": "#5BC0DE",
+      "image": "emirgan.jpg"
+    },
+    {
+      "id": "6",
+      "name": "ETİLER",
+      "color": "#9B59B6",
+      "image": "etiler.jpg"
+    },
+    {
+      "id": "7",
+      "name": "FLORYA",
+      "color": "#E67E22",
+      "image": "florya.jpg"
+    },
+    {
+      "id": "8",
+      "name": "GÖKTÜRK",
+      "color": "#2ECC71",
+      "image": "gokturk.jpg"
+    },
+    {
+      "id": "9",
+      "name": "HADINKÖY",
+      "color": "#34495E",
+      "image": "hadinkoy.jpg"
+    },
+    {
+      "id": "10",
+      "name": "İSTİNYE",
+      "color": "#16A085",
+      "image": "istinye.jpg"
+    }
+  ],
+  "ASYA": [
+    {
+      "id": "11",
+      "name": "ÜSKÜDAR",
+      "color": "#8E44AD",
+      "image": "uskudar.jpg"
+    },
+    {
+      "id": "12",
+      "name": "KADIKÖY",
+      "color": "#E74C3C",
+      "image": "kadikoy.jpg"
+    },
+    {
+      "id": "13",
+      "name": "BOSTANCI",
+      "color": "#3498DB",
+      "image": "bostanci.jpg"
+    },
+    {
+      "id": "14",
+      "name": "MALTEPE",
+      "color": "#F39C12",
+      "image": "maltepe.jpg"
+    },
+    {
+      "id": "15",
+      "name": "KARTAL",
+      "color": "#27AE60",
+      "image": "kartal.jpg"
+    },
+    {
+      "id": "16",
+      "name": "PENDİK",
+      "color": "#9B59B6",
+      "image": "pendik.jpg"
+    },
+    {
+      "id": "17",
+      "name": "TUZLA",
+      "color": "#E67E22",
+      "image": "tuzla.jpg"
+    },
+    {
+      "id": "18",
+      "name": "ŞİLE",
+      "color": "#1ABC9C",
+      "image": "sile.jpg"
+    }
+  ]
+}
