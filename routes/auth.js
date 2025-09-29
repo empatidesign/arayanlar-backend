@@ -21,4 +21,6 @@ router.put('/profile/image', authenticateToken, upload.single('profileImage'), a
 
 router.put('/social-media', authenticateToken, authController.updateSocialMedia);
 
+router.get('/user/:userId/profile', authController.getUserProfile);
+
 module.exports = router;

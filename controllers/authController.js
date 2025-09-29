@@ -462,6 +462,54 @@ class AuthController {
       });
     }
   }
+
+  async getUserProfile(req, res) {
+    try {
+      const { userId } = req.params;
+      
+      if (!userId || isNaN(userId)) {
+        return res.status(400).json({
+          success: false,
+          message: 'Geçerli bir kullanıcı ID\'si gerekli'
+        });
+      }
+
+      const user = await userService.getUserById(parseInt(userId));
+
+      if (!user) {
+        return res.status(404).json({
+          success: false,
+          message: 'Kullanıcı bulunamadı'
+        });
+      }
+
+      // Sadece genel profil bilgilerini döndür (hassas bilgileri çıkar)
+      res.json({
+        success: true,
+        data: {
+          user: {
+            id: user.id,
+            name: user.name,
+            surname: user.surname,
+            profileImageUrl: user.profile_image_url,
+            about: user.about,
+            instagramUrl: user.instagram_url,
+            facebookUrl: user.facebook_url,
+            whatsappUrl: user.whatsappUrl,
+            linkedinUrl: user.linkedin_url,
+            createdAt: user.created_at
+          }
+        }
+      });
+
+    } catch (error) {
+      console.error('Get user profile error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Kullanıcı profili alınırken hata oluştu'
+      });
+    }
+  }
 }
 
 module.exports = { 
