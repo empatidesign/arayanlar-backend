@@ -16,10 +16,10 @@ router.get('/', getAllBrands);
 router.get('/:id', getBrandById);
 
 // Yeni marka ekle
-router.post('/', upload.single('logo'), createBrand);
+router.post('/', upload.single('image'), createBrand);
 
 // Marka güncelle
-router.put('/:id', upload.single('logo'), updateBrand);
+router.put('/:id', upload.single('image'), updateBrand);
 
 // Marka sil
 router.delete('/:id', deleteBrand);

@@ -78,7 +78,7 @@ const getSectionById = async (req, res) => {
 // Yeni kategori oluştur
 const createSection = async (req, res) => {
   try {
-    const { name, description } = req.body;
+    const { name } = req.body;
     
     if (!name) {
       return res.status(400).json({
@@ -91,8 +91,8 @@ const createSection = async (req, res) => {
     const image = req.file ? `/uploads/sections/${req.file.filename}` : null;
     
     const result = await db.query(
-      'INSERT INTO sections (name, image, description) VALUES ($1, $2, $3) RETURNING *',
-      [name, image, description]
+      'INSERT INTO sections (name, image) VALUES ($1, $2) RETURNING *',
+      [name, image]
     );
     
     res.status(201).json({
@@ -121,7 +121,7 @@ const createSection = async (req, res) => {
 const updateSection = async (req, res) => {
   try {
     const { id } = req.params;
-    const { name, description } = req.body;
+    const { name } = req.body;
     
     // Mevcut kategoriyi kontrol et
     const existingSection = await db.query('SELECT * FROM sections WHERE id = $1', [id]);
@@ -141,12 +141,6 @@ const updateSection = async (req, res) => {
     if (name) {
       updateFields.push(`name = $${paramIndex}`);
       values.push(name);
-      paramIndex++;
-    }
-    
-    if (description !== undefined) {
-      updateFields.push(`description = $${paramIndex}`);
-      values.push(description);
       paramIndex++;
     }
     

@@ -25,11 +25,15 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/regions', require('./routes/regions'));
 app.use('/api/sections', require('./routes/sections'));
+app.use('/api/categories', require('./routes/categories'));
 app.use('/api/listings', require('./routes/listings'));
+app.use('/api/mobile', require('./routes/mobile')); // Mobile app için ayrı endpoint
 app.use('/api/brands', require('./routes/brands'));
 app.use('/api/products', require('./routes/products'));
-app.use('/api/products', require('./routes/productColors'));
+app.use('/api/product-colors', require('./routes/productColors'));
 app.use('/api/color-images', require('./routes/colorImages'));
+app.use('/api/sliders', require('./routes/sliders'));
+app.use('/api/favorites', require('./routes/favorites'));
 app.use('/api/admin', require('./routes/admin'));
 
 app.get('/health', (req, res) => {
@@ -52,11 +56,29 @@ const startServer = async () => {
     await db.testConnection();
     await db.createTables();
     
-    app.listen(PORT, () => {
+    const server = app.listen(PORT, () => {
       console.log(`🚀 Server ${PORT} portunda çalışıyor`);
       console.log(`📊 Health check: http://localhost:${PORT}/health`);
       console.log(`🔐 Auth endpoints: http://localhost:${PORT}/api/auth`);
     });
+
+    // Graceful shutdown
+    process.on('SIGTERM', () => {
+      console.log('SIGTERM signal received: closing HTTP server');
+      server.close(() => {
+        console.log('HTTP server closed');
+        process.exit(0);
+      });
+    });
+
+    process.on('SIGINT', () => {
+      console.log('SIGINT signal received: closing HTTP server');
+      server.close(() => {
+        console.log('HTTP server closed');
+        process.exit(0);
+      });
+    });
+
   } catch (error) {
     console.error('❌ Server başlatma hatası:', error);
     process.exit(1);

@@ -6,7 +6,8 @@ const {
   getPendingListings,
   approveListing,
   rejectListing,
-  bulkApproveListings
+  bulkApproveListings,
+  deleteListing
 } = require('../controllers/adminController');
 
 // Bekleyen ilanları listele
@@ -20,5 +21,8 @@ router.put('/listings/:id/reject', auth, requireAdmin, rejectListing);
 
 // Toplu onaylama
 router.put('/listings/bulk-approve', auth, requireAdmin, bulkApproveListings);
+
+// Admin ilan silme
+router.delete('/listings/:id', auth, requireAdmin, deleteListing);
 
 module.exports = router;

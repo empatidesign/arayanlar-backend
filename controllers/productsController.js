@@ -6,7 +6,13 @@ const fs = require('fs');
 // Multer konfigürasyonu - ürün resimleri için
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
-    const uploadPath = path.join(__dirname, '../uploads/products');
+    let uploadPath;
+    if (file.fieldname.startsWith('colorImages_')) {
+      uploadPath = path.join(__dirname, '../uploads/color-images');
+    } else {
+      uploadPath = path.join(__dirname, '../uploads/products');
+    }
+    
     if (!fs.existsSync(uploadPath)) {
       fs.mkdirSync(uploadPath, { recursive: true });
     }
@@ -14,7 +20,11 @@ const storage = multer.diskStorage({
   },
   filename: function (req, file, cb) {
     const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    cb(null, 'product-' + uniqueSuffix + path.extname(file.originalname));
+    if (file.fieldname.startsWith('colorImages_')) {
+      cb(null, 'color-' + uniqueSuffix + path.extname(file.originalname));
+    } else {
+      cb(null, 'product-' + uniqueSuffix + path.extname(file.originalname));
+    }
   }
 });
 
@@ -35,14 +45,13 @@ const upload = multer({
 // Tüm ürünleri getir
 const getAllProducts = async (req, res) => {
   try {
-    const { brand_id, category_id, page = 1, limit = 50 } = req.query;
+    const { brand_id, page = 1, limit = 50 } = req.query;
     const offset = (page - 1) * limit;
     
     let query = `
-      SELECT p.*, b.name as brand_name, s.name as category_name 
+      SELECT p.*, b.name as brand_name 
       FROM products p
       LEFT JOIN brands b ON p.brand_id = b.id
-      LEFT JOIN sections s ON p.category_id = s.id
       WHERE 1=1
     `;
     let params = [];
@@ -51,12 +60,6 @@ const getAllProducts = async (req, res) => {
     if (brand_id) {
       query += ` AND p.brand_id = $${paramIndex}`;
       params.push(brand_id);
-      paramIndex++;
-    }
-    
-    if (category_id) {
-      query += ` AND p.category_id = $${paramIndex}`;
-      params.push(category_id);
       paramIndex++;
     }
     
@@ -74,11 +77,6 @@ const getAllProducts = async (req, res) => {
       countQuery += ` AND brand_id = $${countParamIndex}`;
       countParams.push(brand_id);
       countParamIndex++;
-    }
-    
-    if (category_id) {
-      countQuery += ` AND category_id = $${countParamIndex}`;
-      countParams.push(category_id);
     }
     
     const countResult = await db.query(countQuery, countParams);
@@ -109,10 +107,9 @@ const getProductById = async (req, res) => {
     const { id } = req.params;
     
     const query = `
-      SELECT p.*, b.name as brand_name, s.name as category_name 
+      SELECT p.*, b.name as brand_name 
       FROM products p
       LEFT JOIN brands b ON p.brand_id = b.id
-      LEFT JOIN sections s ON p.category_id = s.id
       WHERE p.id = $1
     `;
     
@@ -141,23 +138,63 @@ const getProductById = async (req, res) => {
 // Yeni ürün oluştur
 const createProduct = async (req, res) => {
   try {
-    const { name, brand_id, category_id, model, description, colors } = req.body;
+    console.log('🔍 createProduct çağrıldı');
+    console.log('📝 req.body:', req.body);
+    console.log('📁 req.files:', req.files);
     
-    if (!name || !brand_id || !category_id) {
+    const { name, brand_id, model, description, colors } = req.body;
+    
+    if (!name || !brand_id) {
       return res.status(400).json({
         success: false,
-        message: 'Ürün adı, marka ID ve kategori ID gerekli'
+        message: 'Ürün adı ve marka ID gerekli'
       });
     }
     
     // Ürün resmi varsa path'ini al
-    const image = req.file ? `/uploads/products/${req.file.filename}` : null;
+    const imageFile = req.files ? req.files.find(file => file.fieldname === 'image') : null;
+    const image = imageFile ? `/uploads/products/${imageFile.filename}` : '';
+    console.log('🖼️ Ana ürün resmi:', image);
     
     // Colors JSON string ise parse et
     let parsedColors = null;
     if (colors) {
       try {
         parsedColors = typeof colors === 'string' ? JSON.parse(colors) : colors;
+        
+        // Renk resimlerini işle
+        if (parsedColors && Array.isArray(parsedColors)) {
+          parsedColors = parsedColors.map((color, colorIndex) => {
+            const colorImageCount = req.body[`colorImageCount_${colorIndex}`];
+            console.log(`🎨 Yeni ürün renk ${colorIndex} için resim sayısı:`, colorImageCount);
+            
+            if (colorImageCount && parseInt(colorImageCount) > 0) {
+              const colorImages = [];
+              for (let i = 0; i < parseInt(colorImageCount); i++) {
+                const fieldName = `colorImages_${colorIndex}_${i}`;
+                // upload.any() ile gelen dosyaları doğru şekilde bul
+                const colorImageFile = req.files ? req.files.find(file => file.fieldname === fieldName) : null;
+                if (colorImageFile) {
+                  const imageUrl = `/uploads/color-images/${colorImageFile.filename}`;
+                  colorImages.push(imageUrl);
+                  console.log(`📸 Yeni ürün renk resmi eklendi: ${fieldName} -> ${imageUrl}`);
+                }
+              }
+              
+              // Hex değerini kaldır, sadece name ve images tut
+              return {
+                name: color.name,
+                images: colorImages
+              };
+            }
+            
+            // Hex değerini kaldır, sadece name ve images tut
+            return {
+              name: color.name,
+              images: []
+            };
+          });
+        }
       } catch (error) {
         return res.status(400).json({
           success: false,
@@ -168,8 +205,10 @@ const createProduct = async (req, res) => {
     
     const result = await db.query(
       'INSERT INTO products (name, brand_id, category_id, model, image, description, colors) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *',
-      [name, brand_id, category_id, model, image, description, parsedColors ? JSON.stringify(parsedColors) : null]
+      [name, brand_id, req.body.category_id, model, image, description, parsedColors ? JSON.stringify(parsedColors) : null]
     );
+    
+    console.log('✅ Ürün veritabanına kaydedildi:', result.rows[0]);
     
     res.status(201).json({
       success: true,
@@ -196,8 +235,20 @@ const createProduct = async (req, res) => {
 // Ürün güncelle
 const updateProduct = async (req, res) => {
   try {
+    console.log('🔄 updateProduct çağrıldı');
+    console.log('📝 req.body:', req.body);
+    console.log('📁 req.files:', req.files);
+    
+    // req.files detaylı analizi
+    if (req.files) {
+      console.log('📁 req.files detayları:');
+      req.files.forEach((file, index) => {
+        console.log(`  [${index}] fieldname: ${file.fieldname}, filename: ${file.filename}, path: ${file.path}`);
+      });
+    }
+    
     const { id } = req.params;
-    const { name, brand_id, category_id, model, description, colors } = req.body;
+    const { name, brand_id, model, description, colors } = req.body;
     
     // Mevcut ürünü kontrol et
     const existingProduct = await db.query('SELECT * FROM products WHERE id = $1', [id]);
@@ -226,9 +277,9 @@ const updateProduct = async (req, res) => {
       paramIndex++;
     }
     
-    if (category_id) {
+    if (req.body.category_id) {
       updateFields.push(`category_id = $${paramIndex}`);
-      values.push(category_id);
+      values.push(req.body.category_id);
       paramIndex++;
     }
     
@@ -249,6 +300,40 @@ const updateProduct = async (req, res) => {
       if (colors) {
         try {
           parsedColors = typeof colors === 'string' ? JSON.parse(colors) : colors;
+          
+          // Renk resimlerini işle
+          if (parsedColors && Array.isArray(parsedColors)) {
+            parsedColors = parsedColors.map((color, colorIndex) => {
+              const colorImageCount = req.body[`colorImageCount_${colorIndex}`];
+              console.log(`🎨 Renk ${colorIndex} için resim sayısı:`, colorImageCount);
+              
+              if (colorImageCount && parseInt(colorImageCount) > 0) {
+                const colorImages = [];
+                for (let i = 0; i < parseInt(colorImageCount); i++) {
+                  const fieldName = `colorImages_${colorIndex}_${i}`;
+                  // upload.any() ile gelen dosyaları doğru şekilde bul
+                  const colorImageFile = req.files ? req.files.find(file => file.fieldname === fieldName) : null;
+                  if (colorImageFile) {
+                    const imageUrl = `/uploads/color-images/${colorImageFile.filename}`;
+                    colorImages.push(imageUrl);
+                    console.log(`📸 Renk resmi eklendi: ${fieldName} -> ${imageUrl}`);
+                  }
+                }
+                
+                // Hex değerini kaldır, sadece name ve images tut
+                return {
+                  name: color.name,
+                  images: colorImages
+                };
+              } else {
+                // Hex değerini kaldır, sadece name ve boş images tut
+                return {
+                  name: color.name,
+                  images: []
+                };
+              }
+            });
+          }
         } catch (error) {
           return res.status(400).json({
             success: false,
@@ -261,21 +346,29 @@ const updateProduct = async (req, res) => {
       paramIndex++;
     }
     
-    // Yeni resim dosyası varsa
-    if (req.file) {
-      const newImage = `/uploads/products/${req.file.filename}`;
+    // Yeni resim dosyası varsa güncelle
+    const imageFile = req.files ? req.files.find(file => file.fieldname === 'image') : null;
+    console.log('🔍 Ana resim dosyası aranıyor:', imageFile ? 'Bulundu' : 'Bulunamadı');
+    
+    if (imageFile) {
+      const newImage = `/uploads/products/${imageFile.filename}`;
       updateFields.push(`image = $${paramIndex}`);
       values.push(newImage);
       paramIndex++;
       
+      console.log('🖼️ Ana ürün resmi güncellendi:', newImage);
+      
       // Eski resim dosyasını sil
       const oldImage = existingProduct.rows[0].image;
-      if (oldImage) {
+      if (oldImage && oldImage !== '/uploads/products/default-product.png') {
         const oldImagePath = path.join(__dirname, '..', oldImage);
         if (fs.existsSync(oldImagePath)) {
           fs.unlinkSync(oldImagePath);
+          console.log('🗑️ Eski resim silindi:', oldImage);
         }
       }
+    } else {
+      console.log('📷 Yeni resim yüklenmedi, mevcut resim korunuyor');
     }
     
     if (updateFields.length === 0) {

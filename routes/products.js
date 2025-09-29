@@ -15,11 +15,11 @@ router.get('/', getAllProducts);
 // Belirli bir ürünü getir
 router.get('/:id', getProductById);
 
-// Yeni ürün ekle
-router.post('/', upload.single('image'), createProduct);
+// Yeni ürün ekle - çoklu dosya yükleme desteği
+router.post('/', upload.any(), createProduct);
 
-// Ürün güncelle
-router.put('/:id', upload.single('image'), updateProduct);
+// Ürün güncelle - çoklu dosya yükleme desteği
+router.put('/:id', upload.any(), updateProduct);
 
 // Ürün sil
 router.delete('/:id', deleteProduct);

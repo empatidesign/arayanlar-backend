@@ -51,7 +51,7 @@ const getAllBrands = async (req, res) => {
     
     res.json({
       success: true,
-      brands: result.rows
+      data: result.rows
     });
   } catch (error) {
     console.error('Markalar getirilirken hata:', error);
@@ -92,7 +92,7 @@ const getBrandById = async (req, res) => {
 // Yeni marka oluştur
 const createBrand = async (req, res) => {
   try {
-    const { name, category_id, description } = req.body;
+    const { name, category_id } = req.body;
     
     if (!name || !category_id) {
       return res.status(400).json({
@@ -102,17 +102,17 @@ const createBrand = async (req, res) => {
     }
     
     // Logo dosyası varsa path'ini al
-    const logo = req.file ? `/uploads/brands/${req.file.filename}` : null;
+    const image = req.file ? `/uploads/brands/${req.file.filename}` : null;
     
     const result = await db.query(
-      'INSERT INTO brands (name, category_id, logo, description) VALUES ($1, $2, $3, $4) RETURNING *',
-      [name, category_id, logo, description]
+      'INSERT INTO brands (name, category_id, image) VALUES ($1, $2, $3) RETURNING *',
+      [name, category_id, image]
     );
     
     res.status(201).json({
       success: true,
       message: 'Marka başarıyla oluşturuldu',
-      brand: result.rows[0]
+      data: result.rows[0]
     });
   } catch (error) {
     console.error('Marka oluşturulurken hata:', error);
@@ -135,7 +135,7 @@ const createBrand = async (req, res) => {
 const updateBrand = async (req, res) => {
   try {
     const { id } = req.params;
-    const { name, category_id, description } = req.body;
+    const { name, category_id } = req.body;
     
     // Mevcut markayı kontrol et
     const existingBrand = await db.query('SELECT * FROM brands WHERE id = $1', [id]);
@@ -164,25 +164,19 @@ const updateBrand = async (req, res) => {
       paramIndex++;
     }
     
-    if (description !== undefined) {
-      updateFields.push(`description = $${paramIndex}`);
-      values.push(description);
-      paramIndex++;
-    }
-    
     // Yeni logo dosyası varsa
     if (req.file) {
-      const newLogo = `/uploads/brands/${req.file.filename}`;
-      updateFields.push(`logo = $${paramIndex}`);
-      values.push(newLogo);
+      const newImage = `/uploads/brands/${req.file.filename}`;
+      updateFields.push(`image = $${paramIndex}`);
+      values.push(newImage);
       paramIndex++;
       
       // Eski logo dosyasını sil
-      const oldLogo = existingBrand.rows[0].logo;
-      if (oldLogo) {
-        const oldLogoPath = path.join(__dirname, '..', oldLogo);
-        if (fs.existsSync(oldLogoPath)) {
-          fs.unlinkSync(oldLogoPath);
+      const oldImage = existingBrand.rows[0].image;
+      if (oldImage) {
+        const oldImagePath = path.join(__dirname, '..', oldImage);
+        if (fs.existsSync(oldImagePath)) {
+          fs.unlinkSync(oldImagePath);
         }
       }
     }
@@ -254,11 +248,11 @@ const deleteBrand = async (req, res) => {
     }
     
     // Logo dosyasını sil
-    const logo = existingBrand.rows[0].logo;
-    if (logo) {
-      const logoPath = path.join(__dirname, '..', logo);
-      if (fs.existsSync(logoPath)) {
-        fs.unlinkSync(logoPath);
+    const image = existingBrand.rows[0].image;
+    if (image) {
+      const imagePath = path.join(__dirname, '..', image);
+      if (fs.existsSync(imagePath)) {
+        fs.unlinkSync(imagePath);
       }
     }
     

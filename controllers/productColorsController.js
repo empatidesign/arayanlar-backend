@@ -12,19 +12,50 @@ const getProductColors = async (req, res) => {
       });
     }
     
+    // Ürünün colors alanından renkleri getir
     const query = `
-      SELECT pc.*, c.name as color_name, c.hex_code 
-      FROM product_colors pc
-      LEFT JOIN colors c ON pc.color_id = c.id
-      WHERE pc.product_id = $1
-      ORDER BY c.name ASC
+      SELECT colors 
+      FROM products 
+      WHERE id = $1
     `;
     
     const result = await db.query(query, [product_id]);
     
+    if (result.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'Ürün bulunamadı'
+      });
+    }
+    
+    let colors = [];
+    if (result.rows[0].colors) {
+      try {
+        const parsedColors = typeof result.rows[0].colors === 'string' 
+          ? JSON.parse(result.rows[0].colors) 
+          : result.rows[0].colors;
+        
+        // Eğer colors array değilse boş array döndür
+        if (!Array.isArray(parsedColors)) {
+          colors = [];
+        } else {
+          // Frontend'in beklediği formata dönüştür
+          colors = parsedColors.map((color, index) => ({
+            id: `${product_id}-${index}`, // Unique ID oluştur
+            name: color.name,
+            image: color.images && color.images.length > 0 ? color.images[0] : null, // İlk resmi al
+            images: color.images || [] // Tüm resimleri de sakla
+          }));
+        }
+      } catch (error) {
+        console.error('Colors parse hatası:', error);
+        colors = [];
+      }
+    }
+    
     res.json({
       success: true,
-      colors: result.rows
+      colors: colors
     });
   } catch (error) {
     console.error('Ürün renkleri getirilirken hata:', error);

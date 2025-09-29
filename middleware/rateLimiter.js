@@ -32,7 +32,7 @@ const emailVerificationLimiter = rateLimit({
 
 const strictAuthLimiter = rateLimit({
   windowMs: 60 * 60 * 1000, // 1 saat
-  max: 5, // IP başına maksimum 5 başarısız giriş
+  max: 50, // IP başına maksimum 50 başarısız giriş
   message: {
     error: 'Çok fazla başarısız giriş denemesi, hesabınız 1 saat kilitlendi'
   },

@@ -8,8 +8,10 @@ const pool = new Pool({
   password: process.env.DB_PASSWORD || '123',
   ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
   max: 20,
-  idleTimeoutMillis: 30000,
-  connectionTimeoutMillis: 2000,
+  idleTimeoutMillis: 300000, // 5 dakika (300 saniye)
+  connectionTimeoutMillis: 10000, // 10 saniye
+  keepAlive: true,
+  keepAliveInitialDelayMillis: 10000,
 });
 
 const testConnection = async () => {
@@ -103,13 +105,17 @@ const createTables = async () => {
     END $$;
   `;
 
-  const createIndexes = `
-    CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
-    CREATE INDEX IF NOT EXISTS idx_users_phone ON users(phone);
-    CREATE INDEX IF NOT EXISTS idx_users_city ON users(city);
-    CREATE INDEX IF NOT EXISTS idx_users_gender ON users(gender);
-    CREATE INDEX IF NOT EXISTS idx_brands_category ON brands(category_id);
-    CREATE INDEX IF NOT EXISTS idx_products_brand ON products(brand_id);
+  const createSlidersTable = `
+    CREATE TABLE IF NOT EXISTS sliders (
+      id SERIAL PRIMARY KEY,
+      title VARCHAR(255) NOT NULL,
+      category VARCHAR(100) NOT NULL,
+      image_url TEXT,
+      order_index INTEGER DEFAULT 1,
+      is_active BOOLEAN DEFAULT TRUE,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
   `;
 
   try {
@@ -117,8 +123,20 @@ const createTables = async () => {
     await pool.query(createSectionsTable);
     await pool.query(createBrandsTable);
     await pool.query(createProductsTable);
+    await pool.query(createSlidersTable);
     await pool.query(addSocialMediaColumns);
-    await pool.query(createIndexes);
+    
+    // Create indexes after all tables are created
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_users_phone ON users(phone);`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_users_city ON users(city);`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_users_gender ON users(gender);`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_brands_category ON brands(category_id);`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_products_brand ON products(brand_id);`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_sliders_category ON sliders(category);`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_sliders_order ON sliders(order_index);`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_sliders_active ON sliders(is_active);`);
+    
     console.log('✅ Veritabanı tabloları oluşturuldu');
   } catch (error) {
     console.error('❌ Tablo oluşturma hatası:', error);

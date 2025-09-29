@@ -46,6 +46,7 @@ const getAllListings = async (req, res) => {
       min_price, 
       max_price, 
       is_urgent,
+      status,
       sort = 'created_at',
       order = 'DESC'
     } = req.query;
@@ -55,6 +56,14 @@ const getAllListings = async (req, res) => {
     let whereConditions = ['l.is_active = true'];
     let queryParams = [];
     let paramIndex = 1;
+
+    // Status filtresi - web paneli için tüm ilanları göster, mobile için sadece approved
+    if (status && ['approved', 'pending', 'rejected'].includes(status)) {
+      whereConditions.push(`l.status = $${paramIndex}`);
+      queryParams.push(status);
+      paramIndex++;
+    }
+    // Eğer status belirtilmemişse, default davranış (tüm ilanları göster)
 
     if (category_id) {
       whereConditions.push(`l.category_id = $${paramIndex}`);
@@ -144,12 +153,13 @@ const getListingById = async (req, res) => {
         l.*,
         s.name as category_name,
         u.name as user_name,
+        u.surname as user_surname,
         u.phone as user_phone,
         u.profile_image_url as user_avatar
       FROM listings l
       JOIN sections s ON l.category_id = s.id
       JOIN users u ON l.user_id = u.id
-      WHERE l.id = $1 AND l.is_active = true
+      WHERE l.id = $1 AND l.is_active = true AND l.status = 'approved'
     `;
 
     const result = await db.query(query, [id]);
