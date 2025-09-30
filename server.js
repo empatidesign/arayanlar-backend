@@ -62,8 +62,16 @@ io.use(async (socket, next) => {
     const jwt = require('jsonwebtoken');
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     socket.userId = decoded.id;
+    
+    console.log('🔐 Socket authenticated:', {
+      userId: decoded.id,
+      email: decoded.email,
+      socketId: socket.id
+    });
+    
     next();
   } catch (error) {
+    console.error('❌ Socket authentication failed:', error.message);
     next(new Error('Geçersiz token'));
   }
 });
@@ -77,7 +85,11 @@ io.on('connection', (socket) => {
     const { listingId, otherUserId } = data;
     const roomId = `listing_${listingId}_${Math.min(socket.userId, otherUserId)}_${Math.max(socket.userId, otherUserId)}`;
     socket.join(roomId);
-    console.log(`User ${socket.userId} joined room ${roomId}`);
+    console.log(`👥 User ${socket.userId} joined room ${roomId} (with user ${otherUserId})`);
+    
+    // Odadaki kullanıcı sayısını göster
+    const room = io.sockets.adapter.rooms.get(roomId);
+    console.log(`   📊 Room ${roomId} has ${room?.size || 0} users`);
   });
 
   // Mesaj gönder
@@ -85,25 +97,86 @@ io.on('connection', (socket) => {
     try {
       const { receiverId, listingId, message, messageType = 'text' } = data;
       
-      // Mesajı veritabanına kaydet
+      console.log('📨 sendMessage event:', {
+        sender: socket.userId,
+        receiver: receiverId,
+        listing: listingId,
+        message: message.substring(0, 20)
+      });
+      
+      // Engelleme kontrolü - gönderen veya alıcı birbirini engellemiş mi?
+      const blockCheck = await db.query(
+        'SELECT id FROM blocked_users WHERE (blocker_id = $1 AND blocked_id = $2) OR (blocker_id = $2 AND blocked_id = $1)',
+        [socket.userId, receiverId]
+      );
+      
+      if (blockCheck.rows.length > 0) {
+        console.log('🚫 Mesaj engellendi - kullanıcılar birbirini engellemiş');
+        socket.emit('error', { message: 'Bu kullanıcıyla mesajlaşamazsınız' });
+        return;
+      }
+      
+      // Konuşmayı bul veya oluştur
+      const findOrCreateConv = async () => {
+        const existing = await db.query(`
+          SELECT c.id FROM conversations c
+          JOIN conversation_participants cp1 ON c.id = cp1.conversation_id AND cp1.user_id = $1
+          JOIN conversation_participants cp2 ON c.id = cp2.conversation_id AND cp2.user_id = $2
+          WHERE c.listing_id = $3 LIMIT 1
+        `, [socket.userId, receiverId, listingId]);
+        
+        if (existing.rows.length > 0) {
+          console.log('✅ Mevcut konuşma bulundu:', existing.rows[0].id);
+          return existing.rows[0].id;
+        }
+        
+        const newConv = await db.query('INSERT INTO conversations (listing_id) VALUES ($1) RETURNING id', [listingId]);
+        const convId = newConv.rows[0].id;
+        await db.query('INSERT INTO conversation_participants (conversation_id, user_id) VALUES ($1, $2), ($1, $3)', [convId, socket.userId, receiverId]);
+        console.log('✅ Yeni konuşma oluşturuldu:', convId);
+        return convId;
+      };
+      
+      const conversationId = await findOrCreateConv();
+      
+      // Mesajı kaydet
       const result = await db.query(
-        'INSERT INTO chat_messages (sender_id, receiver_id, listing_id, message, message_type) VALUES ($1, $2, $3, $4, $5) RETURNING *',
-        [socket.userId, receiverId, listingId, message, messageType]
+        'INSERT INTO messages (conversation_id, sender_id, message, message_type) VALUES ($1, $2, $3, $4) RETURNING *',
+        [conversationId, socket.userId, message, messageType]
       );
       
       const savedMessage = result.rows[0];
-      const roomId = `listing_${listingId}_${Math.min(socket.userId, receiverId)}_${Math.max(socket.userId, receiverId)}`;
-      
-      // Odadaki herkese mesajı gönder
-      io.to(roomId).emit('newMessage', {
+      console.log('💾 Mesaj kaydedildi:', {
         id: savedMessage.id,
         sender_id: savedMessage.sender_id,
-        receiver_id: savedMessage.receiver_id,
-        listing_id: savedMessage.listing_id,
+        conversation_id: savedMessage.conversation_id
+      });
+      
+      // deleted_at'ı TEMİZLEME - Eski mesajlar görünmesin
+      // Sohbet listesinde görünmesi için getUserConversations sorgusu düzeltilecek
+      
+      const roomId = `listing_${listingId}_${Math.min(socket.userId, receiverId)}_${Math.max(socket.userId, receiverId)}`;
+      
+      const messageData = {
+        id: savedMessage.id,
+        conversation_id: savedMessage.conversation_id,
+        sender_id: savedMessage.sender_id,
+        listing_id: listingId,
         message: savedMessage.message,
         message_type: savedMessage.message_type,
-        is_read: savedMessage.is_read,
         created_at: savedMessage.created_at
+      };
+      
+      // Odadaki herkese mesajı gönder
+      io.to(roomId).emit('newMessage', messageData);
+      
+      const room = io.sockets.adapter.rooms.get(roomId);
+      console.log('📤 Mesaj gönderildi:', {
+        roomId,
+        roomSize: room?.size || 0,
+        messageId: savedMessage.id,
+        sender: savedMessage.sender_id,
+        totalConnected: io.sockets.sockets.size
       });
       
     } catch (error) {

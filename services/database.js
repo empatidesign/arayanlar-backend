@@ -118,6 +118,38 @@ const createTables = async () => {
     );
   `;
 
+  const createConversationsTable = `
+    CREATE TABLE IF NOT EXISTS conversations (
+      id SERIAL PRIMARY KEY,
+      listing_id INTEGER NOT NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+  `;
+
+  const createConversationParticipantsTable = `
+    CREATE TABLE IF NOT EXISTS conversation_participants (
+      id SERIAL PRIMARY KEY,
+      conversation_id INTEGER REFERENCES conversations(id) ON DELETE CASCADE,
+      user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+      last_read_at TIMESTAMP,
+      deleted_at TIMESTAMP,
+      joined_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(conversation_id, user_id)
+    );
+  `;
+
+  const createMessagesTable = `
+    CREATE TABLE IF NOT EXISTS messages (
+      id SERIAL PRIMARY KEY,
+      conversation_id INTEGER REFERENCES conversations(id) ON DELETE CASCADE,
+      sender_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+      message TEXT NOT NULL,
+      message_type VARCHAR(20) DEFAULT 'text',
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+  `;
+
   try {
     await pool.query(createUsersTable);
     await pool.query(createSectionsTable);
@@ -125,6 +157,9 @@ const createTables = async () => {
     await pool.query(createProductsTable);
     await pool.query(createSlidersTable);
     await pool.query(addSocialMediaColumns);
+    await pool.query(createConversationsTable);
+    await pool.query(createConversationParticipantsTable);
+    await pool.query(createMessagesTable);
     
     // Create indexes after all tables are created
     await pool.query(`CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);`);
@@ -136,6 +171,12 @@ const createTables = async () => {
     await pool.query(`CREATE INDEX IF NOT EXISTS idx_sliders_category ON sliders(category);`);
     await pool.query(`CREATE INDEX IF NOT EXISTS idx_sliders_order ON sliders(order_index);`);
     await pool.query(`CREATE INDEX IF NOT EXISTS idx_sliders_active ON sliders(is_active);`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_conversations_listing ON conversations(listing_id);`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_participants_conversation ON conversation_participants(conversation_id);`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_participants_user ON conversation_participants(user_id);`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_messages_conversation ON messages(conversation_id);`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_messages_sender ON messages(sender_id);`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_messages_created ON messages(created_at);`);
     
     console.log('✅ Veritabanı tabloları oluşturuldu');
   } catch (error) {

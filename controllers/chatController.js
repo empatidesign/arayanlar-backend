@@ -1,6 +1,37 @@
 const db = require('../services/database');
 const path = require('path');
 
+// Konuşma bul veya oluştur
+const findOrCreateConversation = async (listingId, userId, otherUserId) => {
+  // Mevcut konuşmayı bul
+  const existingConv = await db.query(`
+    SELECT c.id 
+    FROM conversations c
+    JOIN conversation_participants cp1 ON c.id = cp1.conversation_id AND cp1.user_id = $1
+    JOIN conversation_participants cp2 ON c.id = cp2.conversation_id AND cp2.user_id = $2
+    WHERE c.listing_id = $3
+    LIMIT 1
+  `, [userId, otherUserId, listingId]);
+  
+  if (existingConv.rows.length > 0) {
+    return existingConv.rows[0].id;
+  }
+  
+  // Yoksa yeni konuşma oluştur
+  const newConv = await db.query(`
+    INSERT INTO conversations (listing_id) VALUES ($1) RETURNING id
+  `, [listingId]);
+  
+  const conversationId = newConv.rows[0].id;
+  
+  // Katılımcıları ekle
+  await db.query(`
+    INSERT INTO conversation_participants (conversation_id, user_id) VALUES ($1, $2), ($1, $3)
+  `, [conversationId, userId, otherUserId]);
+  
+  return conversationId;
+};
+
 // Bir konuşmanın mesaj geçmişini getir
 const getConversationMessages = async (req, res) => {
   try {
@@ -10,26 +41,33 @@ const getConversationMessages = async (req, res) => {
     
     const offset = (page - 1) * limit;
     
+    // Konuşmayı bul veya oluştur
+    const conversationId = await findOrCreateConversation(listingId, userId, otherUserId);
+    
     const result = await db.query(`
       SELECT 
-        cm.*,
+        m.id,
+        m.sender_id,
+        m.message,
+        m.message_type,
+        m.created_at,
         sender.name as sender_name,
-        sender.surname as sender_surname,
-        receiver.name as receiver_name,
-        receiver.surname as receiver_surname
-      FROM chat_messages cm
-      JOIN users sender ON cm.sender_id = sender.id
-      JOIN users receiver ON cm.receiver_id = receiver.id
-      WHERE cm.listing_id = $1 
-        AND ((cm.sender_id = $2 AND cm.receiver_id = $3) 
-             OR (cm.sender_id = $3 AND cm.receiver_id = $2))
-      ORDER BY cm.created_at DESC
-      LIMIT $4 OFFSET $5
-    `, [listingId, userId, otherUserId, limit, offset]);
+        sender.surname as sender_surname
+      FROM messages m
+      JOIN users sender ON m.sender_id = sender.id
+      JOIN conversation_participants cp ON cp.conversation_id = m.conversation_id AND cp.user_id = $2
+      WHERE m.conversation_id = $1
+        AND (
+          cp.deleted_at IS NULL 
+          OR m.created_at > cp.deleted_at
+        )
+      ORDER BY m.created_at DESC
+      LIMIT $3 OFFSET $4
+    `, [conversationId, userId, limit, offset]);
     
     res.json({
       success: true,
-      messages: result.rows.reverse(), // En eski mesajdan en yeniye sırala
+      messages: result.rows.reverse(),
       pagination: {
         page: parseInt(page),
         limit: parseInt(limit),
@@ -53,56 +91,52 @@ const getUserConversations = async (req, res) => {
     
     const result = await db.query(`
       SELECT DISTINCT
-        l.id as listing_id,
+        c.id as conversation_id,
+        c.listing_id,
         l.title as listing_title,
         l.main_image as listing_image,
-        CASE 
-          WHEN cm.sender_id = $1 THEN cm.receiver_id
-          ELSE cm.sender_id
-        END as other_user_id,
-        CASE 
-          WHEN cm.sender_id = $1 THEN receiver.name
-          ELSE sender.name
-        END as other_user_name,
-        CASE 
-          WHEN cm.sender_id = $1 THEN receiver.surname
-          ELSE sender.surname
-        END as other_user_surname,
-        CASE 
-          WHEN cm.sender_id = $1 THEN receiver.profile_image
-          ELSE sender.profile_image
-        END as other_user_image,
+        other_user.id as other_user_id,
+        other_user.name as other_user_name,
+        other_user.surname as other_user_surname,
+        other_user.profile_image_url as other_user_image,
         (
-          SELECT message 
-          FROM chat_messages cm2 
-          WHERE cm2.listing_id = l.id 
-            AND ((cm2.sender_id = $1 AND cm2.receiver_id = (CASE WHEN cm.sender_id = $1 THEN cm.receiver_id ELSE cm.sender_id END))
-                 OR (cm2.sender_id = (CASE WHEN cm.sender_id = $1 THEN cm.receiver_id ELSE cm.sender_id END) AND cm2.receiver_id = $1))
-          ORDER BY cm2.created_at DESC 
+          SELECT m.message 
+          FROM messages m
+          WHERE m.conversation_id = c.id
+            AND (my_part.deleted_at IS NULL OR m.created_at > my_part.deleted_at)
+          ORDER BY m.created_at DESC 
           LIMIT 1
         ) as last_message,
         (
-          SELECT created_at 
-          FROM chat_messages cm2 
-          WHERE cm2.listing_id = l.id 
-            AND ((cm2.sender_id = $1 AND cm2.receiver_id = (CASE WHEN cm.sender_id = $1 THEN cm.receiver_id ELSE cm.sender_id END))
-                 OR (cm2.sender_id = (CASE WHEN cm.sender_id = $1 THEN cm.receiver_id ELSE cm.sender_id END) AND cm2.receiver_id = $1))
-          ORDER BY cm2.created_at DESC 
+          SELECT m.created_at 
+          FROM messages m
+          WHERE m.conversation_id = c.id
+            AND (my_part.deleted_at IS NULL OR m.created_at > my_part.deleted_at)
+          ORDER BY m.created_at DESC 
           LIMIT 1
         ) as last_message_time,
         (
           SELECT COUNT(*) 
-          FROM chat_messages cm2 
-          WHERE cm2.listing_id = l.id 
-            AND cm2.receiver_id = $1 
-            AND cm2.is_read = false
+          FROM messages m
+          WHERE m.conversation_id = c.id
+            AND m.sender_id != $1
+            AND m.created_at > COALESCE(my_part.last_read_at, '1970-01-01')
+            AND (my_part.deleted_at IS NULL OR m.created_at > my_part.deleted_at)
         ) as unread_count
-      FROM chat_messages cm
-      JOIN listings l ON cm.listing_id = l.id
-      JOIN users sender ON cm.sender_id = sender.id
-      JOIN users receiver ON cm.receiver_id = receiver.id
-      WHERE cm.sender_id = $1 OR cm.receiver_id = $1
-      ORDER BY last_message_time DESC
+      FROM conversations c
+      JOIN conversation_participants my_part ON c.id = my_part.conversation_id AND my_part.user_id = $1
+      JOIN conversation_participants other_part ON c.id = other_part.conversation_id AND other_part.user_id != $1
+      JOIN users other_user ON other_part.user_id = other_user.id
+      LEFT JOIN listings l ON c.listing_id = l.id
+      WHERE (
+        my_part.deleted_at IS NULL 
+        OR EXISTS (
+          SELECT 1 FROM messages m 
+          WHERE m.conversation_id = c.id 
+            AND m.created_at > my_part.deleted_at
+        )
+      )
+      ORDER BY last_message_time DESC NULLS LAST
     `, [userId]);
     
     res.json({
@@ -126,30 +160,53 @@ const sendMessage = async (req, res) => {
     const userId = req.user.id;
     let message = req.body.message;
     
-    // Eğer resim yüklendiyse, dosya yolunu message olarak kaydet
+    // Engelleme kontrolü
+    const blockCheck = await db.query(
+      'SELECT id FROM blocked_users WHERE (blocker_id = $1 AND blocked_id = $2) OR (blocker_id = $2 AND blocked_id = $1)',
+      [userId, receiverId]
+    );
+    
+    if (blockCheck.rows.length > 0) {
+      return res.status(403).json({
+        success: false,
+        message: 'Bu kullanıcıyla mesajlaşamazsınız'
+      });
+    }
+    
+    // Resim kontrolü
     if (req.file && messageType === 'image') {
       message = `chat/${req.file.filename}`;
     }
     
-    // Mesajı veritabanına kaydet
+    // Konuşmayı bul veya oluştur
+    const conversationId = await findOrCreateConversation(listingId, userId, receiverId);
+    
+    // Mesajı kaydet
     const result = await db.query(
-      'INSERT INTO chat_messages (sender_id, receiver_id, listing_id, message, message_type) VALUES ($1, $2, $3, $4, $5) RETURNING *',
-      [userId, receiverId, listingId, message, messageType]
+      'INSERT INTO messages (conversation_id, sender_id, message, message_type) VALUES ($1, $2, $3, $4) RETURNING *',
+      [conversationId, userId, message, messageType]
     );
     
     const savedMessage = result.rows[0];
+    
+    // Konuşmayı güncelle
+    await db.query(
+      'UPDATE conversations SET updated_at = CURRENT_TIMESTAMP WHERE id = $1',
+      [conversationId]
+    );
+    
+    // deleted_at'ı TEMİZLEME - Eski mesajlar görünmesin
+    // Sohbet listesinde görünmesi için getUserConversations sorgusu düzeltilecek
     
     res.json({
       success: true,
       message: 'Mesaj başarıyla gönderildi',
       data: {
         id: savedMessage.id,
+        conversation_id: savedMessage.conversation_id,
         sender_id: savedMessage.sender_id,
-        receiver_id: savedMessage.receiver_id,
-        listing_id: savedMessage.listing_id,
         message: savedMessage.message,
         message_type: savedMessage.message_type,
-        is_read: savedMessage.is_read,
         created_at: savedMessage.created_at
       }
     });
@@ -169,9 +226,13 @@ const markMessagesAsRead = async (req, res) => {
     const { listingId, senderId } = req.body;
     const userId = req.user.id;
     
+    // Konuşmayı bul
+    const conversationId = await findOrCreateConversation(listingId, userId, senderId);
+    
+    // last_read_at güncelle
     await db.query(
-      'UPDATE chat_messages SET is_read = true WHERE sender_id = $1 AND receiver_id = $2 AND listing_id = $3',
-      [senderId, userId, listingId]
+      'UPDATE conversation_participants SET last_read_at = CURRENT_TIMESTAMP WHERE conversation_id = $1 AND user_id = $2',
+      [conversationId, userId]
     );
     
     res.json({
@@ -194,19 +255,14 @@ const deleteConversation = async (req, res) => {
     const { listingId, otherUserId } = req.params;
     const userId = req.user.id;
     
-    // Kullanıcının bu sohbetteki rolünü belirle (sender mı receiver mı)
-    const updateQuery = `
-      UPDATE chat_messages 
-      SET 
-        deleted_by_sender = CASE WHEN sender_id = $1 THEN TRUE ELSE deleted_by_sender END,
-        deleted_by_receiver = CASE WHEN receiver_id = $1 THEN TRUE ELSE deleted_by_receiver END,
-        sender_deleted_at = CASE WHEN sender_id = $1 THEN CURRENT_TIMESTAMP ELSE sender_deleted_at END,
-        receiver_deleted_at = CASE WHEN receiver_id = $1 THEN CURRENT_TIMESTAMP ELSE receiver_deleted_at END
-      WHERE listing_id = $2 
-        AND ((sender_id = $1 AND receiver_id = $3) OR (sender_id = $3 AND receiver_id = $1))
-    `;
+    // Konuşmayı bul
+    const conversationId = await findOrCreateConversation(listingId, userId, otherUserId);
     
-    const result = await db.query(updateQuery, [userId, listingId, otherUserId]);
+    // Kullanıcının deleted_at'ını güncelle
+    const result = await db.query(
+      'UPDATE conversation_participants SET deleted_at = CURRENT_TIMESTAMP WHERE conversation_id = $1 AND user_id = $2',
+      [conversationId, userId]
+    );
     
     res.json({
       success: true,
