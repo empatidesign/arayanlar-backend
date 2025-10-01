@@ -37,7 +37,7 @@ const getConversationMessages = async (req, res) => {
   try {
     const { listingId, otherUserId } = req.params;
     const userId = req.user.id;
-    const { page = 1, limit = 50 } = req.query;
+    const { page = 1, limit = 10 } = req.query; // Varsayılan limit 10'a düşürüldü
     
     const offset = (page - 1) * limit;
     
@@ -50,6 +50,7 @@ const getConversationMessages = async (req, res) => {
         m.sender_id,
         m.message,
         m.message_type,
+        m.caption,
         m.created_at,
         sender.name as sender_name,
         sender.surname as sender_surname
@@ -60,6 +61,17 @@ const getConversationMessages = async (req, res) => {
         AND (
           cp.deleted_at IS NULL 
           OR m.created_at > cp.deleted_at
+        )
+        AND (
+          m.sender_id = $2 
+          OR NOT EXISTS (
+            SELECT 1 FROM blocked_users bu 
+            WHERE bu.blocker_id = $2 AND bu.blocked_id = m.sender_id
+          )
+        )
+        AND (
+          m.sender_id = $2
+          OR m.is_blocked_message = FALSE
         )
       ORDER BY m.created_at DESC
       LIMIT $3 OFFSET $4
@@ -104,6 +116,17 @@ const getUserConversations = async (req, res) => {
           FROM messages m
           WHERE m.conversation_id = c.id
             AND (my_part.deleted_at IS NULL OR m.created_at > my_part.deleted_at)
+            AND (
+              m.sender_id = $1 
+              OR NOT EXISTS (
+                SELECT 1 FROM blocked_users bu 
+                WHERE bu.blocker_id = $1 AND bu.blocked_id = m.sender_id
+              )
+            )
+            AND (
+              m.sender_id = $1
+              OR m.is_blocked_message = FALSE
+            )
           ORDER BY m.created_at DESC 
           LIMIT 1
         ) as last_message,
@@ -112,6 +135,17 @@ const getUserConversations = async (req, res) => {
           FROM messages m
           WHERE m.conversation_id = c.id
             AND (my_part.deleted_at IS NULL OR m.created_at > my_part.deleted_at)
+            AND (
+              m.sender_id = $1 
+              OR NOT EXISTS (
+                SELECT 1 FROM blocked_users bu 
+                WHERE bu.blocker_id = $1 AND bu.blocked_id = m.sender_id
+              )
+            )
+            AND (
+              m.sender_id = $1
+              OR m.is_blocked_message = FALSE
+            )
           ORDER BY m.created_at DESC 
           LIMIT 1
         ) as last_message_time,
@@ -122,6 +156,17 @@ const getUserConversations = async (req, res) => {
             AND m.sender_id != $1
             AND m.created_at > COALESCE(my_part.last_read_at, '1970-01-01')
             AND (my_part.deleted_at IS NULL OR m.created_at > my_part.deleted_at)
+            AND (
+              m.sender_id = $1 
+              OR NOT EXISTS (
+                SELECT 1 FROM blocked_users bu 
+                WHERE bu.blocker_id = $1 AND bu.blocked_id = m.sender_id
+              )
+            )
+            AND (
+              m.sender_id = $1
+              OR m.is_blocked_message = FALSE
+            )
         ) as unread_count
       FROM conversations c
       JOIN conversation_participants my_part ON c.id = my_part.conversation_id AND my_part.user_id = $1
@@ -159,32 +204,29 @@ const sendMessage = async (req, res) => {
     const { receiverId, listingId, messageType = 'text' } = req.body;
     const userId = req.user.id;
     let message = req.body.message;
-    
-    // Engelleme kontrolü
-    const blockCheck = await db.query(
-      'SELECT id FROM blocked_users WHERE (blocker_id = $1 AND blocked_id = $2) OR (blocker_id = $2 AND blocked_id = $1)',
-      [userId, receiverId]
-    );
-    
-    if (blockCheck.rows.length > 0) {
-      return res.status(403).json({
-        success: false,
-        message: 'Bu kullanıcıyla mesajlaşamazsınız'
-      });
-    }
+    let caption = null;
     
     // Resim kontrolü
     if (req.file && messageType === 'image') {
-      message = `chat/${req.file.filename}`;
+      caption = message; // Caption'ı sakla
+      message = `chat/${req.file.filename}`; // Resim yolunu message'a yaz
     }
     
     // Konuşmayı bul veya oluştur
     const conversationId = await findOrCreateConversation(listingId, userId, receiverId);
     
+    // Gönderen engellenmiş mi kontrol et
+    const isBlockedCheck = await db.query(
+      'SELECT id FROM blocked_users WHERE blocker_id = $1 AND blocked_id = $2',
+      [receiverId, userId]
+    );
+    
+    const isBlockedMessage = isBlockedCheck.rows.length > 0;
+    
     // Mesajı kaydet
     const result = await db.query(
-      'INSERT INTO messages (conversation_id, sender_id, message, message_type) VALUES ($1, $2, $3, $4) RETURNING *',
-      [conversationId, userId, message, messageType]
+      'INSERT INTO messages (conversation_id, sender_id, message, message_type, caption, is_blocked_message) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *',
+      [conversationId, userId, message, messageType, caption, isBlockedMessage]
     );
     
     const savedMessage = result.rows[0];
@@ -195,8 +237,31 @@ const sendMessage = async (req, res) => {
       [conversationId]
     );
     
-    // deleted_at'ı TEMİZLEME - Eski mesajlar görünmesin
-    // Sohbet listesinde görünmesi için getUserConversations sorgusu düzeltilecek
+    // WebSocket ile mesajı gönder
+    if (global.io) {
+      const roomId = `listing_${listingId}_${Math.min(userId, receiverId)}_${Math.max(userId, receiverId)}`;
+
+      const messageData = {
+        id: savedMessage.id,
+        conversation_id: savedMessage.conversation_id,
+        sender_id: savedMessage.sender_id,
+        listing_id: listingId,
+        message: savedMessage.message,
+        message_type: savedMessage.message_type,
+        caption: savedMessage.caption,
+        created_at: savedMessage.created_at
+      };
+
+      // Gönderen engellenmiş mi kontrol et
+      if (isBlockedMessage) {
+        // Sadece gönderene emit et
+        console.log('📤 Resim mesajı engellenmiş kullanıcıya gönderildi');
+      } else {
+        // Odadaki herkese emit et
+        global.io.to(roomId).emit('newMessage', messageData);
+        console.log('✅ Resim mesajı WebSocket ile gönderildi:', savedMessage.id);
+      }
+    }
     
     res.json({
       success: true,
@@ -207,6 +272,7 @@ const sendMessage = async (req, res) => {
         sender_id: savedMessage.sender_id,
         message: savedMessage.message,
         message_type: savedMessage.message_type,
+        caption: savedMessage.caption,
         created_at: savedMessage.created_at
       }
     });

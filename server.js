@@ -18,6 +18,9 @@ const io = new Server(server, {
   }
 });
 
+// io'yu global olarak erişilebilir yap
+global.io = io;
+
 const PORT = process.env.PORT || 3000;
 
 app.use(helmet({
@@ -104,18 +107,6 @@ io.on('connection', (socket) => {
         message: message.substring(0, 20)
       });
       
-      // Engelleme kontrolü - gönderen veya alıcı birbirini engellemiş mi?
-      const blockCheck = await db.query(
-        'SELECT id FROM blocked_users WHERE (blocker_id = $1 AND blocked_id = $2) OR (blocker_id = $2 AND blocked_id = $1)',
-        [socket.userId, receiverId]
-      );
-      
-      if (blockCheck.rows.length > 0) {
-        console.log('🚫 Mesaj engellendi - kullanıcılar birbirini engellemiş');
-        socket.emit('error', { message: 'Bu kullanıcıyla mesajlaşamazsınız' });
-        return;
-      }
-      
       // Konuşmayı bul veya oluştur
       const findOrCreateConv = async () => {
         const existing = await db.query(`
@@ -139,10 +130,18 @@ io.on('connection', (socket) => {
       
       const conversationId = await findOrCreateConv();
       
-      // Mesajı kaydet
+      // Gönderen engellenmiş mi kontrol et
+      const isBlockedCheck = await db.query(
+        'SELECT id FROM blocked_users WHERE blocker_id = $1 AND blocked_id = $2',
+        [receiverId, socket.userId]
+      );
+      
+      const isBlockedMessage = isBlockedCheck.rows.length > 0;
+      
+      // Mesajı kaydet (WebSocket'te caption yok, sadece text mesajlar)
       const result = await db.query(
-        'INSERT INTO messages (conversation_id, sender_id, message, message_type) VALUES ($1, $2, $3, $4) RETURNING *',
-        [conversationId, socket.userId, message, messageType]
+        'INSERT INTO messages (conversation_id, sender_id, message, message_type, is_blocked_message) VALUES ($1, $2, $3, $4, $5) RETURNING *',
+        [conversationId, socket.userId, message, messageType, isBlockedMessage]
       );
       
       const savedMessage = result.rows[0];
@@ -167,17 +166,32 @@ io.on('connection', (socket) => {
         created_at: savedMessage.created_at
       };
       
-      // Odadaki herkese mesajı gönder
-      io.to(roomId).emit('newMessage', messageData);
+      // Gönderen engellenmiş mi kontrol et
+      const senderBlockedCheck = await db.query(
+        'SELECT id FROM blocked_users WHERE blocker_id = $1 AND blocked_id = $2',
+        [receiverId, socket.userId]
+      );
       
-      const room = io.sockets.adapter.rooms.get(roomId);
-      console.log('📤 Mesaj gönderildi:', {
-        roomId,
-        roomSize: room?.size || 0,
-        messageId: savedMessage.id,
-        sender: savedMessage.sender_id,
-        totalConnected: io.sockets.sockets.size
-      });
+      if (senderBlockedCheck.rows.length > 0) {
+        // Gönderen engellenmiş - sadece gönderene mesajı gönder
+        socket.emit('newMessage', messageData);
+        console.log('📤 Mesaj sadece gönderene gönderildi (engellenmiş):', {
+          sender: savedMessage.sender_id,
+          messageId: savedMessage.id
+        });
+      } else {
+        // Normal durum - odadaki herkese mesajı gönder
+        io.to(roomId).emit('newMessage', messageData);
+        
+        const room = io.sockets.adapter.rooms.get(roomId);
+        console.log('📤 Mesaj gönderildi:', {
+          roomId,
+          roomSize: room?.size || 0,
+          messageId: savedMessage.id,
+          sender: savedMessage.sender_id,
+          totalConnected: io.sockets.sockets.size
+        });
+      }
       
     } catch (error) {
       console.error('Mesaj gönderme hatası:', error);

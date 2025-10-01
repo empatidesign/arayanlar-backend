@@ -146,8 +146,22 @@ const createTables = async () => {
       sender_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
       message TEXT NOT NULL,
       message_type VARCHAR(20) DEFAULT 'text',
+      caption TEXT,
+      is_blocked_message BOOLEAN DEFAULT FALSE,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     );
+  `;
+  
+  const addIsBlockedMessageColumn = `
+    DO $$ 
+    BEGIN 
+      IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='messages' AND column_name='is_blocked_message') THEN
+        ALTER TABLE messages ADD COLUMN is_blocked_message BOOLEAN DEFAULT FALSE;
+      END IF;
+      IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='messages' AND column_name='caption') THEN
+        ALTER TABLE messages ADD COLUMN caption TEXT;
+      END IF;
+    END $$;
   `;
 
   try {
@@ -160,6 +174,7 @@ const createTables = async () => {
     await pool.query(createConversationsTable);
     await pool.query(createConversationParticipantsTable);
     await pool.query(createMessagesTable);
+    await pool.query(addIsBlockedMessageColumn);
     
     // Create indexes after all tables are created
     await pool.query(`CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);`);
