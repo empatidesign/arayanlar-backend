@@ -40,17 +40,18 @@ app.use('/api/auth', require('./routes/auth'));
 app.use('/api/regions', require('./routes/regions'));
 app.use('/api/sections', require('./routes/sections'));
 app.use('/api/categories', require('./routes/categories'));
-app.use('/api/listings', require('./routes/listings'));
-app.use('/api/mobile', require('./routes/mobile')); // Mobile app için ayrı endpoint
-app.use('/api/brands', require('./routes/brands'));
-app.use('/api/products', require('./routes/products'));
-app.use('/api/product-colors', require('./routes/productColors'));
-app.use('/api/color-images', require('./routes/colorImages'));
 app.use('/api/sliders', require('./routes/sliders'));
 app.use('/api/favorites', require('./routes/favorites'));
 app.use('/api/admin', require('./routes/admin'));
 app.use('/api/chat', require('./routes/chat'));
 app.use('/api/block', require('./routes/block'));
+app.use('/api/watches', require('./routes/watches'));
+
+// Products route'u watches route'una yönlendir
+app.use('/api/products', require('./routes/watches'));
+
+// Mobile listings endpoint'i
+app.use('/api/mobile', require('./routes/watches'));
 
 // Chat için websocket bağlantıları
 const connectedUsers = new Map(); // userId -> socketId mapping

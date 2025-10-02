@@ -12,7 +12,7 @@ const getUserFavorites = async (req, res) => {
         f.created_at as favorited_at,
         l.*
       FROM favorites f
-      JOIN listings l ON f.listing_id = l.id
+      JOIN watch_listings l ON f.listing_id = l.id
       WHERE f.user_id = $1
       ORDER BY f.created_at DESC
     `;
@@ -55,7 +55,7 @@ const addFavorite = async (req, res) => {
 
     // İlan var mı kontrol et
     const listingCheck = await db.query(
-      'SELECT id FROM listings WHERE id = $1',
+      'SELECT id FROM watch_listings WHERE id = $1',
       [listing_id]
     );
 

@@ -172,7 +172,7 @@ const getUserConversations = async (req, res) => {
       JOIN conversation_participants my_part ON c.id = my_part.conversation_id AND my_part.user_id = $1
       JOIN conversation_participants other_part ON c.id = other_part.conversation_id AND other_part.user_id != $1
       JOIN users other_user ON other_part.user_id = other_user.id
-      LEFT JOIN listings l ON c.listing_id = l.id
+      LEFT JOIN watch_listings l ON c.listing_id = l.id
       WHERE (
         my_part.deleted_at IS NULL 
         OR EXISTS (

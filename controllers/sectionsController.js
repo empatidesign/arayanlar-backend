@@ -228,7 +228,7 @@ const deleteSection = async (req, res) => {
     }
     
     // Kategoriye bağlı ilan var mı kontrol et
-    const listingsCheck = await db.query('SELECT COUNT(*) as count FROM listings WHERE category_id = $1', [id]);
+    const listingsCheck = await db.query('SELECT COUNT(*) as count FROM watch_listings WHERE category_id = $1', [id]);
     
     if (parseInt(listingsCheck.rows[0].count) > 0) {
       return res.status(400).json({
