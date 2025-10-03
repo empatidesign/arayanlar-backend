@@ -46,12 +46,13 @@ app.use('/api/admin', require('./routes/admin'));
 app.use('/api/chat', require('./routes/chat'));
 app.use('/api/block', require('./routes/block'));
 app.use('/api/watches', require('./routes/watches'));
+app.use('/api/cars', require('./routes/cars'));
 
 // Products route'u watches route'una yönlendir
 app.use('/api/products', require('./routes/watches'));
 
 // Mobile listings endpoint'i
-app.use('/api/mobile', require('./routes/watches'));
+app.use('/api/mobile', require('./routes/mobile'));
 
 // Chat için websocket bağlantıları
 const connectedUsers = new Map(); // userId -> socketId mapping
