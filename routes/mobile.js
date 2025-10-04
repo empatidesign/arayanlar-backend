@@ -1,5 +1,6 @@
 const express = require('express');
 const router = express.Router();
+const { authenticateToken: auth } = require('../middleware/auth');
 
 // Watch controller'dan mobile fonksiyonları import et
 const { 

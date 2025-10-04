@@ -770,8 +770,10 @@ const createCarListing = async (req, res) => {
       title,
       description,
       price,
-      location, // Frontend'den 'location' olarak geliyor
+      location_city, // Güncellenmiş alan adı
       product_id,
+      brand_id,
+      category_id,
       car_details, // Nested obje olarak geliyor
       selected_color_index, // Renk indeksi
       color_id, // Seçilen renk ID'si
@@ -781,7 +783,15 @@ const createCarListing = async (req, res) => {
       contact_phone,
       contact_email,
       contact_whatsapp,
-      is_urgent = false
+      is_urgent = false,
+      // Paket bilgileri
+      package_type = 'free',
+      package_name = 'Standart İlan Paketi',
+      package_price = 0,
+      duration_days = 7,
+      has_serious_buyer_badge = false,
+      status = 'pending',
+      user_id // Frontend'den gelen user_id
     } = req.body;
 
     // car_details objesi içindeki verileri çıkar
@@ -798,7 +808,7 @@ const createCarListing = async (req, res) => {
     console.log('=== EXTRACTED DATA ===');
     console.log('title:', title);
     console.log('price:', price);
-    console.log('location:', location);
+    console.log('location_city:', location_city);
     console.log('product_id:', product_id);
     console.log('car_details:', car_details);
     console.log('selected_color_index:', selected_color_index);
@@ -811,11 +821,11 @@ const createCarListing = async (req, res) => {
     console.log('model_yili:', model_yili);
 
     // Gerekli alanları kontrol et (frontend'den gelen yapıya göre)
-    if (!title || !price || !location || !product_id || !car_details) {
+    if (!title || !price || !location_city || !product_id || !car_details) {
       console.log('=== MISSING BASIC FIELDS ===');
       return res.status(400).json({
         success: false,
-        message: 'Temel alanlar eksik (title, price, location, product_id, car_details)'
+        message: 'Temel alanlar eksik (title, price, location_city, product_id, car_details)'
       });
     }
 
@@ -828,11 +838,12 @@ const createCarListing = async (req, res) => {
       });
     }
 
-    // Kullanıcı ID'sini token'dan al (auth middleware'den gelir)
-    const user_id = req.user?.id;
-    if (!user_id) {
+    // Kullanıcı ID'sini kontrol et (frontend'den gelen veya token'dan)
+    const final_user_id = user_id || req.user?.id;
+    if (!final_user_id) {
       console.log('=== USER AUTH ERROR ===');
       console.log('req.user:', req.user);
+      console.log('user_id from body:', user_id);
       return res.status(401).json({
         success: false,
         message: 'Kullanıcı kimlik doğrulaması gerekli'
@@ -874,27 +885,31 @@ const createCarListing = async (req, res) => {
     console.log('selectedColorName:', selectedColorName);
     console.log('Proceeding with database insert...');
 
-    // Veritabanına kaydet - frontend'den gelen verilerle
+    // Veritabanına kaydet - paket sistemi ile birlikte
     const result = await db.query(`
       INSERT INTO cars_listings (
-        user_id, product_id, brand_name, model_name,
+        user_id, product_id, brand_id, category_id, brand_name, model_name,
         title, description, price, currency, location_city,
         km, model_year, engine_size, import_status, selected_color_name, selected_color_id,
-        images, main_image, contact_phone, contact_email, contact_whatsapp, is_urgent
+        images, main_image, contact_phone, contact_email, contact_whatsapp, is_urgent,
+        package_type, package_name, package_price, duration_days, has_serious_buyer_badge, status
       ) VALUES (
         $1, $2, $3, $4, $5, $6, $7, $8, $9, $10,
-        $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21
+        $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22,
+        $23, $24, $25, $26, $27, $28, $29
       ) RETURNING *
     `, [
-      user_id, 
+      final_user_id, 
       product_id, 
+      brand_id,
+      category_id,
       brand, // car_details.brand
       model, // car_details.model
       title, 
       description || '', 
       price, 
       currency, 
-      location, // frontend'den location olarak geliyor
+      location_city, // güncellenmiş alan adı
       kmNumber, // parse edilmiş km
       modelYear, // parse edilmiş model_yili
       engine_size || null, 
@@ -906,7 +921,13 @@ const createCarListing = async (req, res) => {
       contact_phone || null, 
       contact_email || null, 
       contact_whatsapp || null, 
-      is_urgent
+      is_urgent,
+      package_type,
+      package_name,
+      package_price,
+      duration_days,
+      has_serious_buyer_badge,
+      status
     ]);
 
     console.log('=== DATABASE INSERT SUCCESS ===');
@@ -1489,8 +1510,12 @@ const approveCarListing = async (req, res) => {
   try {
     const { id } = req.params;
 
-    // İlanın mevcut olup olmadığını kontrol et
-    const existingListing = await db.query('SELECT * FROM cars_listings WHERE id = $1', [id]);
+    // İlanın mevcut bilgilerini al
+    const existingListing = await db.query(
+      'SELECT duration_days FROM cars_listings WHERE id = $1',
+      [id]
+    );
+
     if (existingListing.rows.length === 0) {
       return res.status(404).json({
         success: false,
@@ -1498,22 +1523,23 @@ const approveCarListing = async (req, res) => {
       });
     }
 
-    // İlanı onayla
-    await db.query(`
+    const durationDays = existingListing.rows[0].duration_days || 7;
+
+    // İlanı onayla ve expires_at'i hesapla
+    const result = await db.query(`
       UPDATE cars_listings 
       SET status = 'approved', 
+          expires_at = NOW() + INTERVAL '1 day' * $2,
           rejection_reason = NULL,
           updated_at = CURRENT_TIMESTAMP 
       WHERE id = $1
-    `, [id]);
+      RETURNING *
+    `, [id, durationDays]);
 
     res.json({
       success: true,
-      message: 'İlan başarıyla onaylandı',
-      data: {
-        id: id,
-        status: 'approved'
-      }
+      message: `İlan başarıyla onaylandı ve ${durationDays} günlük süre başlatıldı`,
+      data: result.rows[0]
     });
   } catch (error) {
     console.error('İlan onaylanırken hata:', error);
@@ -1575,6 +1601,48 @@ const rejectCarListing = async (req, res) => {
   }
 };
 
+// Araba ilanını beklemede durumuna çevir
+const revertCarListingToPending = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // İlanın mevcut olup olmadığını kontrol et
+    const existingListing = await db.query('SELECT * FROM cars_listings WHERE id = $1', [id]);
+    if (existingListing.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'İlan bulunamadı'
+      });
+    }
+
+    // İlanı beklemede durumuna çevir
+    await db.query(`
+      UPDATE cars_listings 
+      SET status = 'pending', 
+          rejection_reason = NULL,
+          expires_at = NULL,
+          updated_at = CURRENT_TIMESTAMP 
+      WHERE id = $1
+    `, [id]);
+
+    res.json({
+      success: true,
+      message: 'İlan durumu beklemede olarak değiştirildi',
+      data: {
+        id: id,
+        status: 'pending'
+      }
+    });
+  } catch (error) {
+    console.error('İlan durumu değiştirilirken hata:', error);
+    res.status(500).json({
+      success: false,
+      message: 'İlan durumu değiştirilemedi',
+      error: error.message
+    });
+  }
+};
+
 module.exports = {
   getCarBrands,
   getAllCarModels,
@@ -1600,6 +1668,7 @@ module.exports = {
   getAllCarListingsForAdmin,
   approveCarListing,
   rejectCarListing,
+  revertCarListingToPending,
   upload,
   modelUpload
 };

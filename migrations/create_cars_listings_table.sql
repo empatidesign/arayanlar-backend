@@ -53,7 +53,7 @@ CREATE TABLE IF NOT EXISTS cars_listings (
     -- Zaman bilgileri
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    expires_at TIMESTAMP DEFAULT (CURRENT_TIMESTAMP + INTERVAL '30 days'),
+    expires_at TIMESTAMP DEFAULT (CURRENT_TIMESTAMP + INTERVAL '7 days'),
     
     -- Moderasyon
     status VARCHAR(20) DEFAULT 'pending', -- pending, approved, rejected

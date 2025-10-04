@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
-const { authenticateToken } = require('../middleware/auth');
+const { authenticateToken, isAdmin } = require('../middleware/auth');
+const carsController = require('../controllers/carsController');
 const {
   getCarBrands,
   getAllCarModels,
@@ -26,9 +27,10 @@ const {
   getAllCarListingsForAdmin,
   approveCarListing,
   rejectCarListing,
+  revertCarListingToPending,
   upload,
   modelUpload
-} = require('../controllers/carsController');
+} = carsController;
 
 // Araba markalarını listele
 router.get('/brands', getCarBrands);
@@ -111,5 +113,6 @@ router.post('/create-listing', authenticateToken, createCarListing);
 router.get('/admin/listings', getAllCarListingsForAdmin);
 router.patch('/admin/listings/:id/approve', approveCarListing);
 router.patch('/admin/listings/:id/reject', rejectCarListing);
+router.patch('/admin/listings/:id/revert-to-pending', revertCarListingToPending);
 
 module.exports = router;
