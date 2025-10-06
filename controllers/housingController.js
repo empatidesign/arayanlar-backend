@@ -1,0 +1,434 @@
+const db = require('../services/database');
+
+// Konut ilanı oluştur
+const createHousingListing = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const {
+      title,
+      description,
+      price,
+      province,
+      district,
+      property_type, // 'Daire', 'Villa', etc.
+      room_count,
+      gross_area,
+      floor_number,
+      building_age,
+      is_in_site,
+      site_name,
+      heating_type,
+      is_furnished,
+      main_image, // İlçe resmi
+      package_type,
+      package_price,
+      duration_days,
+      has_serious_buyer_badge
+    } = req.body;
+
+    // building_age değerini direkt string olarak sakla
+    const buildingAgeValue = building_age || null;
+
+    // Zorunlu alanları kontrol et
+    if (!title || !price || !property_type || !room_count || !gross_area) {
+      return res.status(400).json({
+        success: false,
+        message: 'Başlık, fiyat, emlak tipi, oda sayısı ve metrekare alanları zorunludur'
+      });
+    }
+
+    const query = `
+      INSERT INTO housing_listings (
+        user_id, title, description, price,
+        province, district, property_type, room_count,
+        gross_area, floor_number, building_age, is_in_site, site_name,
+        heating_type, is_furnished, main_image, package_type, package_price,
+        duration_days, has_serious_buyer_badge, status
+      ) VALUES (
+        $1, $2, $3, $4, $5, $6, $7, $8,
+        $9, $10, $11, $12, $13, $14, $15, $16, $17,
+        $18, $19, $20, $21
+      ) RETURNING *
+    `;
+
+    const values = [
+      userId, title, description, price,
+      province || 'İstanbul', district, property_type, room_count,
+      gross_area, floor_number, buildingAgeValue, is_in_site, site_name,
+      heating_type, is_furnished, main_image, package_type || 'free', package_price || 0,
+      duration_days || 30, has_serious_buyer_badge || false, 'pending'
+    ];
+
+    const result = await db.query(query, values);
+
+    res.status(201).json({
+      success: true,
+      message: 'Konut ilanı başarıyla oluşturuldu',
+      data: result.rows[0]
+    });
+
+  } catch (error) {
+    console.error('Konut ilanı oluşturulurken hata:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Konut ilanı oluşturulamadı',
+      error: error.message
+    });
+  }
+};
+
+// Konut ilanlarını getir
+const getHousingListings = async (req, res) => {
+  try {
+    const { 
+      page = 1, 
+      limit = 10, 
+      district, 
+      property_type,
+      min_price,
+      max_price,
+      room_count
+    } = req.query;
+
+    const offset = (page - 1) * limit;
+    let whereConditions = ["status = 'approved'"];
+    let queryParams = [];
+    let paramIndex = 1;
+
+    if (district) {
+      whereConditions.push(`district ILIKE $${paramIndex}`);
+      queryParams.push(`%${district}%`);
+      paramIndex++;
+    }
+
+    if (property_type) {
+      whereConditions.push(`property_type = $${paramIndex}`);
+      queryParams.push(property_type);
+      paramIndex++;
+    }
+
+
+
+    if (min_price) {
+      whereConditions.push(`price >= $${paramIndex}`);
+      queryParams.push(min_price);
+      paramIndex++;
+    }
+
+    if (max_price) {
+      whereConditions.push(`price <= $${paramIndex}`);
+      queryParams.push(max_price);
+      paramIndex++;
+    }
+
+    if (room_count) {
+      whereConditions.push(`room_count = $${paramIndex}`);
+      queryParams.push(room_count);
+      paramIndex++;
+    }
+
+    const whereClause = whereConditions.length > 0 ? `WHERE ${whereConditions.join(' AND ')}` : '';
+
+    const query = `
+      SELECT hl.*, u.name as user_name, u.phone as user_phone
+      FROM housing_listings hl
+      LEFT JOIN users u ON hl.user_id = u.id
+      ${whereClause}
+      ORDER BY hl.created_at DESC
+      LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
+    `;
+
+    queryParams.push(limit, offset);
+
+    const result = await db.query(query, queryParams);
+
+    // Toplam sayıyı al
+    const countQuery = `
+      SELECT COUNT(*) as total
+      FROM housing_listings hl
+      ${whereClause}
+    `;
+
+    const countResult = await db.query(countQuery, queryParams.slice(0, -2));
+    const total = parseInt(countResult.rows[0].total);
+
+    res.json({
+      success: true,
+      data: result.rows,
+      pagination: {
+        page: parseInt(page),
+        limit: parseInt(limit),
+        total,
+        pages: Math.ceil(total / limit)
+      }
+    });
+
+  } catch (error) {
+    console.error('Konut ilanları getirilirken hata:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Konut ilanları getirilemedi',
+      error: error.message
+    });
+  }
+};
+
+// Konut ilanı detayını getir
+const getHousingListingById = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const query = `
+      SELECT hl.*, u.name as user_name, u.surname as user_surname, u.phone as user_phone, u.email as user_email, u.profile_image_url
+      FROM housing_listings hl
+      LEFT JOIN users u ON hl.user_id = u.id
+      WHERE hl.id = $1
+    `;
+
+    const result = await db.query(query, [id]);
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'Konut ilanı bulunamadı'
+      });
+    }
+
+    res.json({
+      success: true,
+      data: result.rows[0]
+    });
+
+  } catch (error) {
+    console.error('Konut ilanı getirilirken hata:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Konut ilanı getirilemedi',
+      error: error.message
+    });
+  }
+};
+
+// Konut ilanını güncelle
+const updateHousingListing = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user.id;
+    const updateData = req.body;
+
+    // İlanın sahibi olup olmadığını kontrol et
+    const ownerCheck = await db.query(
+      'SELECT user_id FROM housing_listings WHERE id = $1',
+      [id]
+    );
+
+    if (ownerCheck.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'İlan bulunamadı'
+      });
+    }
+
+    if (ownerCheck.rows[0].user_id !== userId) {
+      return res.status(403).json({
+        success: false,
+        message: 'Bu ilanı güncelleme yetkiniz yok'
+      });
+    }
+
+    // Güncelleme sorgusu oluştur
+    const updateFields = [];
+    const values = [];
+    let paramIndex = 1;
+
+    Object.keys(updateData).forEach(key => {
+      if (updateData[key] !== undefined && key !== 'id' && key !== 'user_id') {
+        updateFields.push(`${key} = $${paramIndex}`);
+        values.push(updateData[key]);
+        paramIndex++;
+      }
+    });
+
+    if (updateFields.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Güncellenecek alan bulunamadı'
+      });
+    }
+
+    updateFields.push(`updated_at = NOW()`);
+    values.push(id);
+
+    const query = `
+      UPDATE housing_listings 
+      SET ${updateFields.join(', ')}
+      WHERE id = $${paramIndex}
+      RETURNING *
+    `;
+
+    const result = await db.query(query, values);
+
+    res.json({
+      success: true,
+      message: 'Konut ilanı başarıyla güncellendi',
+      data: result.rows[0]
+    });
+
+  } catch (error) {
+    console.error('Konut ilanı güncellenirken hata:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Konut ilanı güncellenemedi',
+      error: error.message
+    });
+  }
+};
+
+// Konut ilanını sil
+const deleteHousingListing = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user.id;
+
+    // İlanın sahibi olup olmadığını kontrol et
+    const ownerCheck = await db.query(
+      'SELECT user_id FROM housing_listings WHERE id = $1',
+      [id]
+    );
+
+    if (ownerCheck.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'İlan bulunamadı'
+      });
+    }
+
+    if (ownerCheck.rows[0].user_id !== userId) {
+      return res.status(403).json({
+        success: false,
+        message: 'Bu ilanı silme yetkiniz yok'
+      });
+    }
+
+    await db.query('DELETE FROM housing_listings WHERE id = $1', [id]);
+
+    res.json({
+      success: true,
+      message: 'Konut ilanı başarıyla silindi'
+    });
+
+  } catch (error) {
+    console.error('Konut ilanı silinirken hata:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Konut ilanı silinemedi',
+      error: error.message
+    });
+  }
+};
+
+// Bekleyen konut ilanlarını getir (Admin)
+const getPendingHousingListings = async (req, res) => {
+  try {
+    const query = `
+      SELECT hl.*, u.name as user_name, u.email as user_email
+      FROM housing_listings hl
+      LEFT JOIN users u ON hl.user_id = u.id
+      WHERE hl.status = 'pending'
+      ORDER BY hl.created_at DESC
+    `;
+
+    const result = await db.query(query);
+
+    res.json({
+      success: true,
+      data: result.rows
+    });
+
+  } catch (error) {
+    console.error('Bekleyen konut ilanları getirilirken hata:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Bekleyen konut ilanları getirilemedi',
+      error: error.message
+    });
+  }
+};
+
+// Konut ilanını onayla (Admin)
+const approveHousingListing = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const result = await db.query(
+      'UPDATE housing_listings SET status = $1, updated_at = NOW() WHERE id = $2 RETURNING *',
+      ['approved', id]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'İlan bulunamadı'
+      });
+    }
+
+    res.json({
+      success: true,
+      message: 'Konut ilanı başarıyla onaylandı',
+      data: result.rows[0]
+    });
+
+  } catch (error) {
+    console.error('Konut ilanı onaylanırken hata:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Konut ilanı onaylanamadı',
+      error: error.message
+    });
+  }
+};
+
+// Konut ilanını reddet (Admin)
+const rejectHousingListing = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { rejection_reason } = req.body;
+
+    const result = await db.query(
+      'UPDATE housing_listings SET status = $1, rejection_reason = $2, updated_at = NOW() WHERE id = $3 RETURNING *',
+      ['rejected', rejection_reason, id]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'İlan bulunamadı'
+      });
+    }
+
+    res.json({
+      success: true,
+      message: 'Konut ilanı başarıyla reddedildi',
+      data: result.rows[0]
+    });
+
+  } catch (error) {
+    console.error('Konut ilanı reddedilirken hata:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Konut ilanı reddedilemedi',
+      error: error.message
+    });
+  }
+};
+
+module.exports = {
+  createHousingListing,
+  getHousingListings,
+  getHousingListingById,
+  updateHousingListing,
+  deleteHousingListing,
+  getPendingHousingListings,
+  approveHousingListing,
+  rejectHousingListing
+};

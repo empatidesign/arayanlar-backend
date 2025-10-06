@@ -1,0 +1,42 @@
+-- İlçeler tablosuna resim alanı ekleme
+ALTER TABLE districts ADD COLUMN image TEXT;
+
+-- İlçe resimlerini güncelleme
+UPDATE districts SET image = 'adalar.jpg' WHERE name = 'Adalar';
+UPDATE districts SET image = 'arnavutkoy.jpg' WHERE name = 'Arnavutköy';
+UPDATE districts SET image = 'atasehir.jpg' WHERE name = 'Ataşehir';
+UPDATE districts SET image = 'avcilar.jpg' WHERE name = 'Avcılar';
+UPDATE districts SET image = 'bagcilar.jpg' WHERE name = 'Bağcılar';
+UPDATE districts SET image = 'bahcelievler.jpg' WHERE name = 'Bahçelievler';
+UPDATE districts SET image = 'bakirkoy.jpg' WHERE name = 'Bakırköy';
+UPDATE districts SET image = 'basaksehir.jpg' WHERE name = 'Başakşehir';
+UPDATE districts SET image = 'bayrampasa.jpg' WHERE name = 'Bayrampaşa';
+UPDATE districts SET image = 'besiktas.jpg' WHERE name = 'Beşiktaş';
+UPDATE districts SET image = 'beykoz.jpg' WHERE name = 'Beykoz';
+UPDATE districts SET image = 'beylikduzu.jpg' WHERE name = 'Beylikdüzü';
+UPDATE districts SET image = 'beyoglu.jpg' WHERE name = 'Beyoğlu';
+UPDATE districts SET image = 'buyukcekmece.jpg' WHERE name = 'Büyükçekmece';
+UPDATE districts SET image = 'catalca.jpg' WHERE name = 'Çatalca';
+UPDATE districts SET image = 'cekmece.jpg' WHERE name = 'Çekmeköy';
+UPDATE districts SET image = 'esenler.jpg' WHERE name = 'Esenler';
+UPDATE districts SET image = 'esenyurt.jpg' WHERE name = 'Esenyurt';
+UPDATE districts SET image = 'eyupsultan.jpg' WHERE name = 'Eyüpsultan';
+UPDATE districts SET image = 'fatih.jpg' WHERE name = 'Fatih';
+UPDATE districts SET image = 'gaziosmanpasa.jpg' WHERE name = 'Gaziosmanpaşa';
+UPDATE districts SET image = 'gungoren.jpg' WHERE name = 'Güngören';
+UPDATE districts SET image = 'kadikoy.jpg' WHERE name = 'Kadıköy';
+UPDATE districts SET image = 'kagithane.jpg' WHERE name = 'Kağıthane';
+UPDATE districts SET image = 'kartal.jpg' WHERE name = 'Kartal';
+UPDATE districts SET image = 'kucukcekmece.jpg' WHERE name = 'Küçükçekmece';
+UPDATE districts SET image = 'maltepe.jpg' WHERE name = 'Maltepe';
+UPDATE districts SET image = 'pendik.jpg' WHERE name = 'Pendik';
+UPDATE districts SET image = 'sancaktepe.jpg' WHERE name = 'Sancaktepe';
+UPDATE districts SET image = 'sariyer.jpg' WHERE name = 'Sarıyer';
+UPDATE districts SET image = 'silivri.jpg' WHERE name = 'Silivri';
+UPDATE districts SET image = 'sisli.jpg' WHERE name = 'Şişli';
+UPDATE districts SET image = 'sultangazi.jpg' WHERE name = 'Sultangazi';
+UPDATE districts SET image = 'sultanbeyli.jpg' WHERE name = 'Sultanbeyli';
+UPDATE districts SET image = 'tuzla.jpg' WHERE name = 'Tuzla';
+UPDATE districts SET image = 'umraniye.jpg' WHERE name = 'Ümraniye';
+UPDATE districts SET image = 'uskudar.jpg' WHERE name = 'Üsküdar';
+UPDATE districts SET image = 'zeytinburnu.jpg' WHERE name = 'Zeytinburnu';

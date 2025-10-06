@@ -676,6 +676,7 @@ const getMobileListingById = async (req, res) => {
         wl.view_count,
         wl.favorite_count,
         u.name as username,
+        u.surname as user_surname,
         u.email as user_email,
         u.profile_image_url,
         u.phone as user_phone,

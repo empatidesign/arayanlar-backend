@@ -47,6 +47,8 @@ app.use('/api/chat', require('./routes/chat'));
 app.use('/api/block', require('./routes/block'));
 app.use('/api/watches', require('./routes/watches'));
 app.use('/api/cars', require('./routes/cars'));
+app.use('/api/housing', require('./routes/housing'));
+app.use('/api/districts', require('./routes/districts'));
 
 // Products route'u watches route'una yönlendir
 app.use('/api/products', require('./routes/watches'));
