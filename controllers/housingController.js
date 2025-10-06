@@ -19,6 +19,7 @@ const createHousingListing = async (req, res) => {
       site_name,
       heating_type,
       is_furnished,
+      listing_type, // 'satilik' veya 'kiralik'
       main_image, // İlçe resmi
       package_type,
       package_price,
@@ -42,12 +43,12 @@ const createHousingListing = async (req, res) => {
         user_id, title, description, price,
         province, district, property_type, room_count,
         gross_area, floor_number, building_age, is_in_site, site_name,
-        heating_type, is_furnished, main_image, package_type, package_price,
+        heating_type, is_furnished, listing_type, main_image, package_type, package_price,
         duration_days, has_serious_buyer_badge, status
       ) VALUES (
         $1, $2, $3, $4, $5, $6, $7, $8,
-        $9, $10, $11, $12, $13, $14, $15, $16, $17,
-        $18, $19, $20, $21
+        $9, $10, $11, $12, $13, $14, $15, $16, $17, $18,
+        $19, $20, $21, $22
       ) RETURNING *
     `;
 
@@ -55,7 +56,7 @@ const createHousingListing = async (req, res) => {
       userId, title, description, price,
       province || 'İstanbul', district, property_type, room_count,
       gross_area, floor_number, buildingAgeValue, is_in_site, site_name,
-      heating_type, is_furnished, main_image, package_type || 'free', package_price || 0,
+      heating_type, is_furnished, listing_type || 'satilik', main_image, package_type || 'free', package_price || 0,
       duration_days || 30, has_serious_buyer_badge || false, 'pending'
     ];
 

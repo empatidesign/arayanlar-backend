@@ -372,6 +372,8 @@ const createMobileListing = async (req, res) => {
       user_id,
       product_id,
       brand_id,
+      brand_name, // Marka adını ayrı olarak al
+      model_name, // Model adını ayrı olarak al
       category_id,
       color_id,
       title,
@@ -410,7 +412,7 @@ const createMobileListing = async (req, res) => {
     // İlanı veritabanına kaydet
     const result = await db.query(`
       INSERT INTO watch_listings (
-        user_id, product_id, brand_id, category_id, color_id,
+        user_id, product_id, brand_id, brand_name, model_name, category_id, color_id,
         title, description, price, currency,
         location_city, location_district, location_address,
         contact_phone, contact_email, contact_whatsapp,
@@ -418,16 +420,16 @@ const createMobileListing = async (req, res) => {
         package_type, package_name, package_price, duration_days,
         has_serious_buyer_badge, expires_at, status, is_active
       ) VALUES (
-        $1, $2, $3, $4, $5,
-        $6, $7, $8, $9,
-        $10, $11, $12,
-        $13, $14, $15,
-        $16, $17, $18, $19,
-        $20, $21, $22, $23,
-        $24, $25, 'pending', true
+        $1, $2, $3, $4, $5, $6, $7,
+        $8, $9, $10, $11,
+        $12, $13, $14,
+        $15, $16, $17,
+        $18, $19, $20, $21,
+        $22, $23, $24, $25,
+        $26, $27, 'pending', true
       ) RETURNING id
     `, [
-      user_id, product_id, brand_id, category_id, color_id,
+      user_id, product_id, brand_id, brand_name, model_name, category_id, color_id,
       title, description, price, currency,
       location_city, location_district, location_address,
       contact_phone, contact_email, contact_whatsapp,
@@ -480,7 +482,7 @@ const getMobileListings = async (req, res) => {
         wl.*,
         u.name as user_name,
         u.profile_image_url as user_profile_image,
-        wb.name as brand_name,
+        wb.name as brand_name_from_table,
         wp.name as product_name,
         wp.image as product_image
       FROM watch_listings wl
@@ -675,13 +677,15 @@ const getMobileListingById = async (req, res) => {
         wl.is_featured,
         wl.view_count,
         wl.favorite_count,
+        wl.brand_name,
+        wl.model_name,
         u.name as username,
         u.surname as user_surname,
         u.email as user_email,
         u.profile_image_url,
         u.phone as user_phone,
         u.created_at as user_created_at,
-        wb.name as brand_name
+        wb.name as brand_name_from_table
       FROM watch_listings wl
       LEFT JOIN users u ON wl.user_id = u.id
       LEFT JOIN watch_brands wb ON wl.brand_id = wb.id
