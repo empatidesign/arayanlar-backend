@@ -48,6 +48,7 @@ app.use('/api/block', require('./routes/block'));
 app.use('/api/watches', require('./routes/watches'));
 app.use('/api/cars', require('./routes/cars'));
 app.use('/api/housing', require('./routes/housing'));
+app.use('/api/user-listings', require('./routes/userListings'));
 app.use('/api/districts', require('./routes/districts'));
 
 // Products route'u watches route'una yönlendir
