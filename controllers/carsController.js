@@ -118,6 +118,37 @@ const getCarBrands = async (req, res) => {
   }
 };
 
+// Araba ilanını sil (Admin)
+const deleteCarListingByAdmin = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // İlanın mevcut olup olmadığını kontrol et
+    const existingListing = await db.query('SELECT * FROM cars_listings WHERE id = $1', [id]);
+    if (existingListing.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'İlan bulunamadı'
+      });
+    }
+
+    // İlanı sil
+    await db.query('DELETE FROM cars_listings WHERE id = $1', [id]);
+
+    res.json({
+      success: true,
+      message: 'İlan başarıyla silindi'
+    });
+  } catch (error) {
+    console.error('İlan silinirken hata:', error);
+    res.status(500).json({
+      success: false,
+      message: 'İlan silinemedi',
+      error: error.message
+    });
+  }
+};
+
 // Tüm araba modellerini listele (admin için)
 const getAllCarModels = async (req, res) => {
   try {
@@ -1669,6 +1700,7 @@ module.exports = {
   approveCarListing,
   rejectCarListing,
   revertCarListingToPending,
+  deleteCarListingByAdmin,
   upload,
   modelUpload
 };

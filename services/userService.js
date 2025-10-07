@@ -31,21 +31,21 @@ class UserService {
     }
   }
 
-  async findUserByEmailOrPhone(email, phone) {
+  async findUserByEmail(email) {
     try {
       const query = `
-        SELECT id, name, surname, email, phone, password_hash, is_verified, 
+        SELECT id, name, surname, email, phone, password_hash, is_verified, role,
                subscription_end_date, birthday, gender, city, profile_image_url,
                instagram_url, facebook_url, whatsappUrl, linkedin_url,
                created_at
         FROM users 
-        WHERE email = $1 OR phone = $2
+        WHERE email = $1
       `;
       
-      const result = await db.query(query, [email.toLowerCase(), phone]);
+      const result = await db.query(query, [email.toLowerCase()]);
       return result.rows[0] || null;
     } catch (error) {
-      console.error('Kullanıcı arama hatası:', error);
+      console.error('Email ile kullanıcı arama hatası:', error);
       throw error;
     }
   }
@@ -53,8 +53,9 @@ class UserService {
   async findUserByEmail(email) {
     try {
       const query = `
-        SELECT id, name, surname, email, phone, password_hash, is_verified,
+        SELECT id, name, surname, email, phone, password_hash, is_verified, role,
                subscription_end_date, birthday, gender, city, profile_image_url,
+               instagram_url, facebook_url, whatsappUrl, linkedin_url,
                created_at
         FROM users 
         WHERE email = $1
@@ -146,7 +147,7 @@ class UserService {
   async getUserById(userId) {
     try {
       const query = `
-        SELECT id, name, surname, email, phone, is_verified, 
+        SELECT id, name, surname, email, phone, is_verified, role,
                subscription_end_date, birthday, gender, city, profile_image_url,
                about, instagram_url, facebook_url, whatsappUrl, linkedin_url,
                created_at, updated_at

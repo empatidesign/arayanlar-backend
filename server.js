@@ -50,6 +50,7 @@ app.use('/api/cars', require('./routes/cars'));
 app.use('/api/housing', require('./routes/housing'));
 app.use('/api/user-listings', require('./routes/userListings'));
 app.use('/api/districts', require('./routes/districts'));
+app.use('/api/listing-schedule', require('./routes/listingSchedule'));
 
 // Products route'u watches route'una yönlendir
 app.use('/api/products', require('./routes/watches'));

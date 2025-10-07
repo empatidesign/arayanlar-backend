@@ -18,13 +18,13 @@ const requireAdmin = async (req, res, next) => {
       });
     }
     
-    // Geliştirme aşamasında tüm kullanıcıları admin olarak kabul et
-    // if (userResult.rows[0].role !== 'admin') {
-    //   return res.status(403).json({
-    //     success: false,
-    //     message: 'Bu işlem için admin yetkisi gerekli'
-    //   });
-    // }
+    // Admin yetkisi kontrolü
+    if (userResult.rows[0].role !== 'admin') {
+      return res.status(403).json({
+        success: false,
+        message: 'Bu işlem için admin yetkisi gerekli'
+      });
+    }
     
     next();
   } catch (error) {

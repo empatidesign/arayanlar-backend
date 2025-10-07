@@ -2,7 +2,7 @@ const rateLimit = require('express-rate-limit');
 
 const generalLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 dakika
-  max: 100, // IP başına maksimum 100 istek
+  max: 100500, // IP başına maksimum 100 istek (500'den düşürüldü)
   message: {
     error: 'Çok fazla istek gönderildi, lütfen daha sonra tekrar deneyin'
   },
@@ -12,7 +12,7 @@ const generalLimiter = rateLimit({
 
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 dakika
-  max: 20, // IP başına maksimum 20 auth işlemi
+  max: 10, // IP başına maksimum 10 auth işlemi (20'den düşürüldü)
   message: {
     error: 'Çok fazla giriş denemesi, lütfen 15 dakika sonra tekrar deneyin'
   },
@@ -32,7 +32,7 @@ const emailVerificationLimiter = rateLimit({
 
 const strictAuthLimiter = rateLimit({
   windowMs: 60 * 60 * 1000, // 1 saat
-  max: 50, // IP başına maksimum 50 başarısız giriş
+  max: 20, // IP başına maksimum 20 başarısız giriş 
   message: {
     error: 'Çok fazla başarısız giriş denemesi, hesabınız 1 saat kilitlendi'
   },
@@ -41,9 +41,21 @@ const strictAuthLimiter = rateLimit({
   skipSuccessfulRequests: true, // Başarılı istekleri sayma
 });
 
+// Admin işlemleri için özel rate limiter
+const adminLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 dakika
+  max: 500, // IP başına maksimum 30 admin işlemi
+  message: {
+    error: 'Çok fazla admin işlemi, lütfen 15 dakika sonra tekrar deneyin'
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
 module.exports = {
   generalLimiter,
   authLimiter,
   emailVerificationLimiter,
-  strictAuthLimiter
+  strictAuthLimiter,
+  adminLimiter
 };

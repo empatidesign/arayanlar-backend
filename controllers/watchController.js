@@ -1575,6 +1575,40 @@ const getPendingWatchListings = async (req, res) => {
   }
 };
 
+// Admin tarafından saat ilanı silme
+const deleteWatchListingByAdmin = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // İlanın var olup olmadığını kontrol et
+    const checkResult = await db.query(
+      'SELECT id, title FROM watch_listings WHERE id = $1',
+      [id]
+    );
+
+    if (checkResult.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'Saat ilanı bulunamadı'
+      });
+    }
+
+    // İlanı sil
+    await db.query('DELETE FROM watch_listings WHERE id = $1', [id]);
+
+    res.json({
+      success: true,
+      message: 'Saat ilanı başarıyla silindi'
+    });
+  } catch (error) {
+    console.error('Saat ilanı silinirken hata:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Saat ilanı silinirken bir hata oluştu'
+    });
+  }
+};
+
 module.exports = {
   getWatchBrands,
   getWatchProductsByBrand,
@@ -1586,7 +1620,6 @@ module.exports = {
   createMobileListing,
   getMobileListings,
   getMobileListingById,
-  // Admin yönetimi fonksiyonları
   createWatchBrand,
   updateWatchBrand,
   deleteWatchBrand,
@@ -1599,6 +1632,7 @@ module.exports = {
   getPendingWatchListings,
   approveWatchListing,
   rejectWatchListing,
+  deleteWatchListingByAdmin,
   upload,
   modelUpload
 };

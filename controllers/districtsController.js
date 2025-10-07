@@ -53,9 +53,15 @@ const getDistricts = async (req, res) => {
     
     const result = await db.query(query, params);
     
+    // Image path'lerini tam URL olarak döndür
+    const districtsWithImageUrls = result.rows.map(district => ({
+      ...district,
+      image: district.image ? `/uploads/districts/${district.image}` : null
+    }));
+    
     res.json({
       success: true,
-      data: result.rows,
+      data: districtsWithImageUrls,
       message: 'İlçeler başarıyla getirildi'
     });
   } catch (error) {
@@ -84,10 +90,16 @@ const getDistrictById = async (req, res) => {
         message: 'İlçe bulunamadı'
       });
     }
+
+    // Image path'ini tam URL olarak döndür
+    const district = {
+      ...result.rows[0],
+      image: result.rows[0].image ? `/uploads/districts/${result.rows[0].image}` : null
+    };
     
     res.json({
       success: true,
-      data: result.rows[0],
+      data: district,
       message: 'İlçe başarıyla getirildi'
     });
   } catch (error) {
@@ -124,9 +136,15 @@ const searchDistricts = async (req, res) => {
     
     const result = await db.query(query, params);
     
+    // Image path'lerini tam URL olarak döndür
+    const districtsWithImageUrls = result.rows.map(district => ({
+      ...district,
+      image: district.image ? `/uploads/districts/${district.image}` : null
+    }));
+    
     res.json({
       success: true,
-      data: result.rows,
+      data: districtsWithImageUrls,
       message: 'Arama sonuçları getirildi'
     });
   } catch (error) {
@@ -147,9 +165,15 @@ const getIstanbulDistricts = async (req, res) => {
       ['İstanbul']
     );
     
+    // Image path'lerini tam URL olarak döndür
+    const districtsWithImageUrls = result.rows.map(district => ({
+      ...district,
+      image: district.image ? `/uploads/districts/${district.image}` : null
+    }));
+    
     res.json({
       success: true,
-      data: result.rows,
+      data: districtsWithImageUrls,
       message: 'İstanbul ilçeleri başarıyla getirildi'
     });
   } catch (error) {

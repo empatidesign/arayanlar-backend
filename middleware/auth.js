@@ -26,7 +26,8 @@ const authenticateToken = async (req, res, next) => {
       id: user.id,
       email: user.email,
       name: user.name,
-      surname: user.surname
+      surname: user.surname,
+      role: user.role
     };
 
     next();
@@ -50,6 +51,32 @@ const authenticateToken = async (req, res, next) => {
     return res.status(500).json({
       success: false,
       message: 'Token doğrulama hatası'
+    });
+  }
+};
+
+const requireAdmin = async (req, res, next) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({
+        success: false,
+        message: 'Kimlik doğrulama gerekli'
+      });
+    }
+
+    if (req.user.role !== 'admin') {
+      return res.status(403).json({
+        success: false,
+        message: 'Bu işlem için admin yetkisi gerekli'
+      });
+    }
+
+    next();
+  } catch (error) {
+    console.error('Admin middleware error:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Yetki kontrolü sırasında hata oluştu'
     });
   }
 };
@@ -83,5 +110,6 @@ const optionalAuth = async (req, res, next) => {
 
 module.exports = {
   authenticateToken,
+  requireAdmin,
   optionalAuth
 };

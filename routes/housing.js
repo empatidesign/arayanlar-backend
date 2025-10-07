@@ -1,21 +1,26 @@
 const express = require('express');
 const router = express.Router();
 const { authenticateToken } = require('../middleware/auth');
+const { checkListingScheduleWithAdminBypass } = require('../middleware/listingSchedule');
 const housingController = require('../controllers/housingController');
 
 const {
   createHousingListing,
   getHousingListings,
+  getAllHousingListingsForAdmin,
   getHousingListingById,
   updateHousingListing,
   deleteHousingListing,
+  deleteHousingListingByAdmin,
   approveHousingListing,
   rejectHousingListing,
+  cancelHousingListing,
+  reapproveHousingListing,
   getPendingHousingListings
 } = housingController;
 
-// Konut ilanı oluştur (kimlik doğrulaması gerekli)
-router.post('/create-listing', authenticateToken, createHousingListing);
+// Konut ilanı oluştur (kimlik doğrulaması ve zaman kontrolü gerekli)
+router.post('/create-listing', authenticateToken, checkListingScheduleWithAdminBypass, createHousingListing);
 
 // Konut ilanlarını getir
 router.get('/listings', getHousingListings);
@@ -30,8 +35,12 @@ router.put('/listings/:id', authenticateToken, updateHousingListing);
 router.delete('/listings/:id', authenticateToken, deleteHousingListing);
 
 // Admin routes - konut ilanları yönetimi
+router.get('/admin/listings', authenticateToken, getAllHousingListingsForAdmin);
 router.get('/admin/listings/pending', authenticateToken, getPendingHousingListings);
 router.patch('/admin/listings/:id/approve', authenticateToken, approveHousingListing);
 router.patch('/admin/listings/:id/reject', authenticateToken, rejectHousingListing);
+router.patch('/admin/listings/:id/cancel', authenticateToken, cancelHousingListing);
+router.patch('/admin/listings/:id/reapprove', authenticateToken, reapproveHousingListing);
+router.delete('/admin/listings/:id', authenticateToken, deleteHousingListingByAdmin);
 
 module.exports = router;
