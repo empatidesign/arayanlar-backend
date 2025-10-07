@@ -8,6 +8,7 @@ const { Server } = require('socket.io');
 const db = require('./services/database');
 const { generalLimiter } = require('./middleware/rateLimiter');
 const { authenticateSocketToken } = require('./middleware/auth');
+const listingLimitScheduler = require('./services/listingLimitScheduler');
 
 const app = express();
 const server = http.createServer(app);
@@ -51,6 +52,7 @@ app.use('/api/housing', require('./routes/housing'));
 app.use('/api/user-listings', require('./routes/userListings'));
 app.use('/api/districts', require('./routes/districts'));
 app.use('/api/listing-schedule', require('./routes/listingSchedule'));
+app.use('/api/listing-limits', require('./routes/listingLimits'));
 
 // Products route'u watches route'una yönlendir
 app.use('/api/products', require('./routes/watches'));
@@ -244,16 +246,21 @@ const startServer = async () => {
     await db.testConnection();
     await db.createTables();
     
+    // Listing limit scheduler'ını başlat
+    await listingLimitScheduler.start();
+    
     server.listen(PORT, () => {
       console.log(`🚀 Server ${PORT} portunda çalışıyor`);
       console.log(`📊 Health check: http://localhost:${PORT}/health`);
       console.log(`🔐 Auth endpoints: http://localhost:${PORT}/api/auth`);
       console.log(`💬 WebSocket server aktif`);
+      console.log(`⏰ Listing limit scheduler aktif`);
     });
 
     // Graceful shutdown
     process.on('SIGTERM', () => {
       console.log('SIGTERM signal received: closing HTTP server');
+      listingLimitScheduler.stop(); // Scheduler'ı durdur
       server.close(() => {
         console.log('HTTP server closed');
         process.exit(0);
@@ -262,6 +269,7 @@ const startServer = async () => {
 
     process.on('SIGINT', () => {
       console.log('SIGINT signal received: closing HTTP server');
+      listingLimitScheduler.stop(); // Scheduler'ı durdur
       server.close(() => {
         console.log('HTTP server closed');
         process.exit(0);

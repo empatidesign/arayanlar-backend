@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { authenticateToken, isAdmin } = require('../middleware/auth');
 const { checkListingScheduleWithAdminBypass } = require('../middleware/listingSchedule');
+const { checkListingLimitWithAdminBypass, incrementListingCount } = require('../middleware/listingLimit');
 const carsController = require('../controllers/carsController');
 const {
   getCarBrands,
@@ -109,7 +110,7 @@ router.get('/listings', getCarListings);
 router.get('/:id', getCarListingDetail);
 
 // Araç ilanı oluştur (kimlik doğrulaması ve zaman kontrolü gerekli)
-router.post('/create-listing', authenticateToken, checkListingScheduleWithAdminBypass, createCarListing);
+router.post('/create-listing', authenticateToken, checkListingScheduleWithAdminBypass, checkListingLimitWithAdminBypass, incrementListingCount, createCarListing);
 
 // Admin için araba ilanları yönetimi
 router.get('/admin/listings', authenticateToken, getAllCarListingsForAdmin);

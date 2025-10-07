@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { authenticateToken } = require('../middleware/auth');
 const { checkListingScheduleWithAdminBypass } = require('../middleware/listingSchedule');
+const { checkListingLimitWithAdminBypass, incrementListingCount } = require('../middleware/listingLimit');
 const housingController = require('../controllers/housingController');
 
 const {
@@ -19,8 +20,8 @@ const {
   getPendingHousingListings
 } = housingController;
 
-// Konut ilanı oluştur (kimlik doğrulaması ve zaman kontrolü gerekli)
-router.post('/create-listing', authenticateToken, checkListingScheduleWithAdminBypass, createHousingListing);
+// Konut ilanı oluştur (kimlik doğrulaması, zaman kontrolü ve limit kontrolü gerekli)
+router.post('/create-listing', authenticateToken, checkListingScheduleWithAdminBypass, checkListingLimitWithAdminBypass, incrementListingCount, createHousingListing);
 
 // Konut ilanlarını getir
 router.get('/listings', getHousingListings);

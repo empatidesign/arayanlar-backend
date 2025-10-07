@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { authenticateToken: auth } = require('../middleware/auth');
 const { checkListingScheduleWithAdminBypass } = require('../middleware/listingSchedule');
+const { checkListingLimitWithAdminBypass, incrementListingCount } = require('../middleware/listingLimit');
 
 // Watch controller'dan mobile fonksiyonları import et
 const { 
@@ -20,7 +21,7 @@ const {
 } = require('../controllers/housingController');
 
 // Watch listings endpoints
-router.post('/listings', auth, checkListingScheduleWithAdminBypass, createMobileListing);
+router.post('/listings', auth, checkListingScheduleWithAdminBypass, checkListingLimitWithAdminBypass, incrementListingCount, createMobileListing);
 router.get('/listings', getMobileListings);
 router.get('/listings/:id', getMobileListingById);
 

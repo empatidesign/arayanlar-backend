@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { authenticateToken } = require('../middleware/auth');
 const { checkListingScheduleWithAdminBypass } = require('../middleware/listingSchedule');
+const { checkListingLimitWithAdminBypass, incrementListingCount } = require('../middleware/listingLimit');
 const {
   getWatchBrands,
   getWatchProductsByBrand,
@@ -95,8 +96,8 @@ router.get('/listings', getMobileListings);
 // Mobile listings - Tek ilan detayı getir
 router.get('/listings/:id', getMobileListingById);
 
-// Mobile listings - İlan oluştur (kimlik doğrulaması ve zaman kontrolü gerekli)
-router.post('/listings', authenticateToken, checkListingScheduleWithAdminBypass, createMobileListing);
+// Mobile listings - İlan oluştur (kimlik doğrulaması, zaman kontrolü ve limit kontrolü gerekli)
+router.post('/listings', authenticateToken, checkListingScheduleWithAdminBypass, checkListingLimitWithAdminBypass, incrementListingCount, createMobileListing);
 
 // Admin - Tüm saat ilanlarını getir
 router.get('/admin/listings', authenticateToken, getAllWatchListingsForAdmin);
