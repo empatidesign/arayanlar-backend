@@ -100,9 +100,11 @@ const getAllHousingListingsForAdmin = async (req, res) => {
         u.surname as user_surname,
         u.email as user_email,
         u.phone as user_phone,
-        u.profile_image_url as user_profile_image
+        u.profile_image_url as user_profile_image,
+        d.image as district_image
       FROM housing_listings hl
       LEFT JOIN users u ON hl.user_id = u.id
+      LEFT JOIN districts d ON LOWER(d.name) = LOWER(hl.district) AND d.is_active = true
       WHERE 1=1
     `;
     
@@ -246,9 +248,11 @@ const getHousingListings = async (req, res) => {
     const whereClause = whereConditions.length > 0 ? `WHERE ${whereConditions.join(' AND ')}` : '';
 
     const query = `
-      SELECT hl.*, u.name as user_name, u.phone as user_phone
+      SELECT hl.*, u.name as user_name, u.phone as user_phone,
+             d.image as district_image
       FROM housing_listings hl
       LEFT JOIN users u ON hl.user_id = u.id
+      LEFT JOIN districts d ON LOWER(d.name) = LOWER(hl.district) AND d.is_active = true
       ${whereClause}
       ORDER BY hl.created_at DESC
       LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
@@ -295,9 +299,11 @@ const getHousingListingById = async (req, res) => {
     const { id } = req.params;
 
     const query = `
-      SELECT hl.*, u.name as user_name, u.surname as user_surname, u.phone as user_phone, u.email as user_email, u.profile_image_url
+      SELECT hl.*, u.name as user_name, u.surname as user_surname, u.phone as user_phone, u.email as user_email, u.profile_image_url,
+             d.image as district_image
       FROM housing_listings hl
       LEFT JOIN users u ON hl.user_id = u.id
+      LEFT JOIN districts d ON LOWER(d.name) = LOWER(hl.district) AND d.is_active = true
       WHERE hl.id = $1
     `;
 
@@ -447,9 +453,11 @@ const deleteHousingListing = async (req, res) => {
 const getPendingHousingListings = async (req, res) => {
   try {
     const query = `
-      SELECT hl.*, u.name as user_name, u.email as user_email
+      SELECT hl.*, u.name as user_name, u.email as user_email,
+             d.image as district_image
       FROM housing_listings hl
       LEFT JOIN users u ON hl.user_id = u.id
+      LEFT JOIN districts d ON LOWER(d.name) = LOWER(hl.district) AND d.is_active = true
       WHERE hl.status = 'pending'
       ORDER BY hl.created_at DESC
     `;

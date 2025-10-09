@@ -284,7 +284,7 @@ class AuthController {
             about: user.about,
             instagramUrl: user.instagram_url,
             facebookUrl: user.facebook_url,
-            whatsappUrl: user.whatsappUrl,
+            whatsappUrl: user.whatsapp_url,
             linkedinUrl: user.linkedin_url,
             isVerified: user.is_verified,
             createdAt: user.created_at
@@ -304,7 +304,10 @@ class AuthController {
   async updateProfile(req, res) {
     try {
       const userId = req.user.id;
-      const { name, surname, phone, subscriptionEndDate, birthday, gender, city, profileImageUrl, about } = req.body;
+      const { 
+        name, surname, phone, subscriptionEndDate, birthday, gender, city, 
+        profileImageUrl, about, instagram_url, facebook_url, whatsapp_url, linkedin_url 
+      } = req.body;
 
       const updateData = {};
       if (name) updateData.name = name.trim();
@@ -316,6 +319,12 @@ class AuthController {
       if (city) updateData.city = city.trim();
       if (profileImageUrl) updateData.profile_image_url = profileImageUrl;
       if (about !== undefined) updateData.about = about.trim();
+      
+      // Sosyal medya alanları
+      if (instagram_url !== undefined) updateData.instagram_url = instagram_url;
+      if (facebook_url !== undefined) updateData.facebook_url = facebook_url;
+      if (whatsapp_url !== undefined) updateData.whatsapp_url = whatsapp_url;
+      if (linkedin_url !== undefined) updateData.linkedin_url = linkedin_url;
 
       if (Object.keys(updateData).length === 0) {
         return res.status(400).json({
@@ -368,7 +377,11 @@ class AuthController {
             gender: updatedUser.gender,
             city: updatedUser.city,
             profileImageUrl: updatedUser.profile_image_url,
-            about: updatedUser.about
+            about: updatedUser.about,
+            instagramUrl: updatedUser.instagram_url,
+            facebookUrl: updatedUser.facebook_url,
+            whatsappUrl: updatedUser.whatsapp_url,
+            linkedinUrl: updatedUser.linkedin_url
           }
         }
       });
@@ -495,7 +508,7 @@ class AuthController {
             about: user.about,
             instagramUrl: user.instagram_url,
             facebookUrl: user.facebook_url,
-            whatsappUrl: user.whatsappUrl,
+            whatsappUrl: user.whatsapp_url,
             linkedinUrl: user.linkedin_url,
             createdAt: user.created_at
           }

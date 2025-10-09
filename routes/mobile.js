@@ -23,7 +23,7 @@ const {
 // Watch listings endpoints
 router.post('/listings', auth, checkListingScheduleWithAdminBypass, checkListingLimitWithAdminBypass, incrementListingCount, createMobileListing);
 router.get('/listings', getMobileListings);
-router.get('/listings/:id', getMobileListingById);
+router.get('/listings/:id', auth, getMobileListingById);
 
 // Car listings endpoints
 router.get('/cars/listings', getCarListings);
@@ -33,6 +33,6 @@ router.get('/cars/brands', getCarBrands);
 
 // Housing listings endpoints
 router.get('/housing/listings', getHousingListings);
-router.get('/housing/listings/:id', getHousingListingById);
+router.get('/housing/listings/:id', auth, getHousingListingById);
 
 module.exports = router;

@@ -94,7 +94,8 @@ router.get('/search', searchWatches);
 router.get('/listings', getMobileListings);
 
 // Mobile listings - Tek ilan detayı getir
-router.get('/listings/:id', getMobileListingById);
+// Mobile listings endpoints (kimlik doğrulaması gerekli - satıcı bilgileri koruması)
+router.get('/listings/:id', authenticateToken, getMobileListingById);
 
 // Mobile listings - İlan oluştur (kimlik doğrulaması, zaman kontrolü ve limit kontrolü gerekli)
 router.post('/listings', authenticateToken, checkListingScheduleWithAdminBypass, checkListingLimitWithAdminBypass, incrementListingCount, createMobileListing);

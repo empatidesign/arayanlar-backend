@@ -1,5 +1,37 @@
 const db = require('../services/database');
 
+// Cache için değişkenler
+let scheduleCache = null;
+let cacheExpiry = null;
+const CACHE_DURATION = 5 * 60 * 1000; // 5 dakika cache
+
+// Schedule cache'ini temizle
+const clearScheduleCache = () => {
+  scheduleCache = null;
+  cacheExpiry = null;
+};
+
+// Schedule'ı cache'den al veya veritabanından çek
+const getCachedSchedule = async (currentDay) => {
+  const now = Date.now();
+  
+  // Cache geçerli mi kontrol et
+  if (scheduleCache && cacheExpiry && now < cacheExpiry) {
+    return scheduleCache;
+  }
+  
+  // Cache'i yenile
+  const result = await db.query(
+    'SELECT * FROM listing_schedule WHERE day_of_week = $1 AND is_active = TRUE',
+    [currentDay]
+  );
+  
+  scheduleCache = result.rows;
+  cacheExpiry = now + CACHE_DURATION;
+  
+  return scheduleCache;
+};
+
 // İlan verme saatlerini getir
 const getListingSchedule = async (req, res) => {
   try {
@@ -51,6 +83,9 @@ const updateListingSchedule = async (req, res) => {
       
       await client.query('COMMIT');
       
+      // Cache'i temizle
+      clearScheduleCache();
+      
       res.json({
         success: true,
         message: 'İlan verme saatleri başarıyla güncellendi'
@@ -77,56 +112,23 @@ const checkListingAvailability = async (req, res) => {
     const currentDay = now.getDay(); // 0=Pazar, 1=Pazartesi, ...
     const currentTime = now.toTimeString().slice(0, 8); // HH:MM:SS formatında
     
-    console.log('=== LISTING AVAILABILITY CHECK ===');
-    console.log('Current Date:', now.toISOString());
-    console.log('Current Day:', currentDay);
-    console.log('Current Time:', currentTime);
-    
-    const result = await db.query(
-      'SELECT * FROM listing_schedule WHERE day_of_week = $1 AND is_active = TRUE',
-      [currentDay]
-    );
-    
-    console.log('Schedule Query Result:', result.rows);
+    const scheduleRows = await getCachedSchedule(currentDay);
     
     let canPost = false;
     let nextAvailableTime = null;
     
-    if (result.rows.length > 0) {
-      const schedule = result.rows[0];
-      console.log('Found Schedule:', schedule);
-      console.log('Start Time:', schedule.start_time);
-      console.log('End Time:', schedule.end_time);
-      console.log('Time Comparison:', {
-        currentTime,
-        startTime: schedule.start_time,
-        endTime: schedule.end_time,
-        isAfterStart: currentTime >= schedule.start_time,
-        isBeforeEnd: currentTime < schedule.end_time
-      });
-      
+    if (scheduleRows.length > 0) {
+      const schedule = scheduleRows[0];
       canPost = currentTime >= schedule.start_time && currentTime < schedule.end_time;
-      console.log('Can Post Result:', canPost);
       
       if (!canPost) {
         // Bir sonraki uygun zamanı hesapla
         nextAvailableTime = await calculateNextAvailableTime(currentDay, currentTime);
-        console.log('Next Available Time:', nextAvailableTime);
       }
     } else {
-      console.log('No schedule found for today');
       // Bugün için program yok, bir sonraki uygun günü bul
       nextAvailableTime = await calculateNextAvailableTime(currentDay, currentTime);
-      console.log('Next Available Time (no schedule):', nextAvailableTime);
     }
-    
-    console.log('=== FINAL RESULT ===');
-    console.log('Response Data:', {
-      canPost,
-      currentTime,
-      currentDay,
-      nextAvailableTime
-    });
     
     res.json({
       success: true,
@@ -199,88 +201,40 @@ const getRemainingTime = async (req, res) => {
     const currentDay = now.getDay();
     const currentTime = now.toTimeString().slice(0, 8);
     
-    console.log('=== GET REMAINING TIME ===');
-    console.log('Current Date:', now.toISOString());
-    console.log('Current Day:', currentDay);
-    console.log('Current Time:', currentTime);
-    
-    const result = await db.query(
-      'SELECT * FROM listing_schedule WHERE day_of_week = $1 AND is_active = TRUE',
-      [currentDay]
-    );
-    
-    console.log('Schedule Query Result:', result.rows);
+    const scheduleRows = await getCachedSchedule(currentDay);
     
     let remainingTime = null;
     let canPost = false;
     
-    if (result.rows.length > 0) {
-      const schedule = result.rows[0];
-      console.log('Found Schedule:', schedule);
-      console.log('Start Time:', schedule.start_time);
-      console.log('End Time:', schedule.end_time);
-      console.log('Time Comparison:', {
-        currentTime,
-        startTime: schedule.start_time,
-        endTime: schedule.end_time,
-        isAfterStart: currentTime >= schedule.start_time,
-        isBeforeEnd: currentTime < schedule.end_time
-      });
-      
+    if (scheduleRows.length > 0) {
+      const schedule = scheduleRows[0];
       canPost = currentTime >= schedule.start_time && currentTime < schedule.end_time;
-      console.log('Can Post Result:', canPost);
       
       if (canPost) {
         // Şu an ilan verilebilir, süre 0 göster
         remainingTime = 0;
-        console.log('Setting remaining time to 0 (can post now)');
       } else {
         // Şu an ilan verilemez, bir sonraki uygun zamana kadar kalan süreyi hesapla
-        console.log('Cannot post now, calculating next available time...');
         const nextAvailable = await calculateNextAvailableTime(currentDay, currentTime);
-        console.log('Next Available Time:', nextAvailable);
         if (nextAvailable) {
           const nextTime = new Date(nextAvailable.date);
           const [startHour, startMinute] = nextAvailable.time.split(':');
           nextTime.setHours(parseInt(startHour), parseInt(startMinute), 0, 0);
           
-          console.log('Calculating remaining time:', {
-            nextTime: nextTime.toISOString(),
-            currentTime: now.toISOString(),
-            timeDifference: nextTime.getTime() - now.getTime()
-          });
-          
           remainingTime = Math.max(0, nextTime.getTime() - now.getTime());
-          console.log('Calculated remaining time (ms):', remainingTime);
         }
       }
     } else {
-      console.log('No schedule found for today, calculating next available...');
       // Bugün için program yok
       const nextAvailable = await calculateNextAvailableTime(currentDay, currentTime);
-      console.log('Next Available Time (no schedule):', nextAvailable);
       if (nextAvailable) {
         const nextTime = new Date(nextAvailable.date);
         const [startHour, startMinute] = nextAvailable.time.split(':');
         nextTime.setHours(parseInt(startHour), parseInt(startMinute), 0, 0);
         
-        console.log('Calculating remaining time (no schedule):', {
-          nextTime: nextTime.toISOString(),
-          currentTime: now.toISOString(),
-          timeDifference: nextTime.getTime() - now.getTime()
-        });
-        
         remainingTime = Math.max(0, nextTime.getTime() - now.getTime());
-        console.log('Calculated remaining time (ms, no schedule):', remainingTime);
       }
     }
-    
-    console.log('=== GET REMAINING TIME RESULT ===');
-    console.log('Final Result:', {
-      canPost,
-      remainingTime,
-      remainingTimeFormatted: remainingTime ? formatRemainingTime(remainingTime) : null
-    });
     
     res.json({
       success: true,
@@ -322,5 +276,6 @@ module.exports = {
   getListingSchedule,
   updateListingSchedule,
   checkListingAvailability,
-  getRemainingTime
+  getRemainingTime,
+  clearScheduleCache // Cache temizleme fonksiyonunu export et
 };

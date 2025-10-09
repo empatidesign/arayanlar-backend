@@ -106,8 +106,8 @@ router.get('/product-colors/:productId', getCarProductColors);
 // Araç ilanlarını getir (mobile API için)
 router.get('/listings', getCarListings);
 
-// Araç ilanı detayını getir
-router.get('/:id', getCarListingDetail);
+// Araç ilanı detayını getir (kimlik doğrulaması gerekli - satıcı bilgileri koruması)
+router.get('/:id', authenticateToken, getCarListingDetail);
 
 // Araç ilanı oluştur (kimlik doğrulaması ve zaman kontrolü gerekli)
 router.post('/create-listing', authenticateToken, checkListingScheduleWithAdminBypass, checkListingLimitWithAdminBypass, incrementListingCount, createCarListing);

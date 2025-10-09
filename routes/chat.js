@@ -13,8 +13,8 @@ const {
 // Kullanıcının tüm konuşmalarını listele
 router.get('/conversations', authenticateToken, getUserConversations);
 
-// Belirli bir konuşmanın mesajlarını getir
-router.get('/conversations/:listingId/:otherUserId', authenticateToken, getConversationMessages);
+// Belirli bir konuşmanın mesajlarını getir (kullanıcı bazlı)
+router.get('/conversations/:otherUserId', authenticateToken, getConversationMessages);
 
 // Mesaj gönder
 router.post('/send-message', authenticateToken, upload.single('image'), sendMessage);
@@ -23,6 +23,6 @@ router.post('/send-message', authenticateToken, upload.single('image'), sendMess
 router.post('/mark-read', authenticateToken, markMessagesAsRead);
 
 // Sohbeti sil (sadece kendi tarafında)
-router.delete('/conversations/:listingId/:otherUserId', authenticateToken, deleteConversation);
+router.delete('/conversations/:otherUserId', authenticateToken, deleteConversation);
 
 module.exports = router;

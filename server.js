@@ -93,8 +93,8 @@ io.on('connection', (socket) => {
 
   // Kullanıcı bir konuşmaya katıl
   socket.on('joinConversation', (data) => {
-    const { listingId, otherUserId } = data;
-    const roomId = `listing_${listingId}_${Math.min(socket.userId, otherUserId)}_${Math.max(socket.userId, otherUserId)}`;
+    const { otherUserId } = data;
+    const roomId = `user_${Math.min(socket.userId, otherUserId)}_${Math.max(socket.userId, otherUserId)}`;
     socket.join(roomId);
     console.log(`👥 User ${socket.userId} joined room ${roomId} (with user ${otherUserId})`);
     
@@ -106,12 +106,11 @@ io.on('connection', (socket) => {
   // Mesaj gönder
   socket.on('sendMessage', async (data) => {
     try {
-      const { receiverId, listingId, message, messageType = 'text' } = data;
+      const { receiverId, message, messageType = 'text' } = data;
       
       console.log('📨 sendMessage event:', {
         sender: socket.userId,
         receiver: receiverId,
-        listing: listingId,
         message: message.substring(0, 20)
       });
       
@@ -121,15 +120,15 @@ io.on('connection', (socket) => {
           SELECT c.id FROM conversations c
           JOIN conversation_participants cp1 ON c.id = cp1.conversation_id AND cp1.user_id = $1
           JOIN conversation_participants cp2 ON c.id = cp2.conversation_id AND cp2.user_id = $2
-          WHERE c.listing_id = $3 LIMIT 1
-        `, [socket.userId, receiverId, listingId]);
+          LIMIT 1
+        `, [socket.userId, receiverId]);
         
         if (existing.rows.length > 0) {
           console.log('✅ Mevcut konuşma bulundu:', existing.rows[0].id);
           return existing.rows[0].id;
         }
         
-        const newConv = await db.query('INSERT INTO conversations (listing_id) VALUES ($1) RETURNING id', [listingId]);
+        const newConv = await db.query('INSERT INTO conversations (listing_id) VALUES (NULL) RETURNING id');
         const convId = newConv.rows[0].id;
         await db.query('INSERT INTO conversation_participants (conversation_id, user_id) VALUES ($1, $2), ($1, $3)', [convId, socket.userId, receiverId]);
         console.log('✅ Yeni konuşma oluşturuldu:', convId);
@@ -159,16 +158,13 @@ io.on('connection', (socket) => {
         conversation_id: savedMessage.conversation_id
       });
       
-      // deleted_at'ı TEMİZLEME - Eski mesajlar görünmesin
-      // Sohbet listesinde görünmesi için getUserConversations sorgusu düzeltilecek
-      
-      const roomId = `listing_${listingId}_${Math.min(socket.userId, receiverId)}_${Math.max(socket.userId, receiverId)}`;
+      const roomId = `user_${Math.min(socket.userId, receiverId)}_${Math.max(socket.userId, receiverId)}`;
       
       const messageData = {
         id: savedMessage.id,
         conversation_id: savedMessage.conversation_id,
         sender_id: savedMessage.sender_id,
-        listing_id: listingId,
+        receiver_id: receiverId,
         message: savedMessage.message,
         message_type: savedMessage.message_type,
         created_at: savedMessage.created_at
@@ -210,11 +206,29 @@ io.on('connection', (socket) => {
   // Mesajları okundu olarak işaretle
   socket.on('markAsRead', async (data) => {
     try {
-      const { senderId, listingId } = data;
-      await db.query(
-        'UPDATE chat_messages SET is_read = true WHERE sender_id = $1 AND receiver_id = $2 AND listing_id = $3',
-        [senderId, socket.userId, listingId]
-      );
+      const { senderId } = data;
+      
+      // Konuşmayı bul
+      const findConversation = async () => {
+        const existing = await db.query(`
+          SELECT c.id FROM conversations c
+          JOIN conversation_participants cp1 ON c.id = cp1.conversation_id AND cp1.user_id = $1
+          JOIN conversation_participants cp2 ON c.id = cp2.conversation_id AND cp2.user_id = $2
+          LIMIT 1
+        `, [socket.userId, senderId]);
+        
+        return existing.rows.length > 0 ? existing.rows[0].id : null;
+      };
+      
+      const conversationId = await findConversation();
+      
+      if (conversationId) {
+        // last_read_at güncelle
+        await db.query(
+          'UPDATE conversation_participants SET last_read_at = CURRENT_TIMESTAMP WHERE conversation_id = $1 AND user_id = $2',
+          [conversationId, socket.userId]
+        );
+      }
     } catch (error) {
       console.error('Mesaj okundu işaretleme hatası:', error);
     }

@@ -1,26 +1,25 @@
 const db = require('../services/database');
 const path = require('path');
 
-// Konuşma bul veya oluştur
-const findOrCreateConversation = async (listingId, userId, otherUserId) => {
-  // Mevcut konuşmayı bul
+// Konuşma bul veya oluştur - Kullanıcı bazlı (ilan bağımsız)
+const findOrCreateConversation = async (userId, otherUserId) => {
+  // İki kullanıcı arasında mevcut konuşmayı bul (ilan bağımsız)
   const existingConv = await db.query(`
     SELECT c.id 
     FROM conversations c
     JOIN conversation_participants cp1 ON c.id = cp1.conversation_id AND cp1.user_id = $1
     JOIN conversation_participants cp2 ON c.id = cp2.conversation_id AND cp2.user_id = $2
-    WHERE c.listing_id = $3
     LIMIT 1
-  `, [userId, otherUserId, listingId]);
+  `, [userId, otherUserId]);
   
   if (existingConv.rows.length > 0) {
     return existingConv.rows[0].id;
   }
   
-  // Yoksa yeni konuşma oluştur
+  // Yoksa yeni konuşma oluştur (listing_id null olarak bırakıyoruz çünkü artık kullanıcı bazlı)
   const newConv = await db.query(`
-    INSERT INTO conversations (listing_id) VALUES ($1) RETURNING id
-  `, [listingId]);
+    INSERT INTO conversations (listing_id) VALUES (NULL) RETURNING id
+  `);
   
   const conversationId = newConv.rows[0].id;
   
@@ -35,14 +34,35 @@ const findOrCreateConversation = async (listingId, userId, otherUserId) => {
 // Bir konuşmanın mesaj geçmişini getir
 const getConversationMessages = async (req, res) => {
   try {
-    const { listingId, otherUserId } = req.params;
+    const { otherUserId } = req.params;
     const userId = req.user.id;
     const { page = 1, limit = 10 } = req.query; // Varsayılan limit 10'a düşürüldü
     
     const offset = (page - 1) * limit;
     
-    // Konuşmayı bul veya oluştur
-    const conversationId = await findOrCreateConversation(listingId, userId, otherUserId);
+    // Önce konuşmanın var olup olmadığını kontrol et (oluşturma!)
+    const existingConv = await db.query(`
+      SELECT c.id 
+      FROM conversations c
+      JOIN conversation_participants cp1 ON c.id = cp1.conversation_id AND cp1.user_id = $1
+      JOIN conversation_participants cp2 ON c.id = cp2.conversation_id AND cp2.user_id = $2
+      LIMIT 1
+    `, [userId, otherUserId]);
+    
+    // Eğer conversation yoksa, boş response döndür
+    if (existingConv.rows.length === 0) {
+      return res.json({
+        success: true,
+        messages: [],
+        pagination: {
+          page: parseInt(page),
+          limit: parseInt(limit),
+          total: 0
+        }
+      });
+    }
+    
+    const conversationId = existingConv.rows[0].id;
     
     const result = await db.query(`
       SELECT 
@@ -64,14 +84,14 @@ const getConversationMessages = async (req, res) => {
         )
         AND (
           m.sender_id = $2 
-          OR NOT EXISTS (
-            SELECT 1 FROM blocked_users bu 
-            WHERE bu.blocker_id = $2 AND bu.blocked_id = m.sender_id
+          OR (
+            NOT EXISTS (
+              SELECT 1 FROM blocked_users bu 
+              WHERE bu.blocker_id = $2 AND bu.blocked_id = m.sender_id
+              AND bu.created_at <= m.created_at
+            )
+            AND (m.is_blocked_message = FALSE OR m.is_blocked_message IS NULL)
           )
-        )
-        AND (
-          m.sender_id = $2
-          OR m.is_blocked_message = FALSE
         )
       ORDER BY m.created_at DESC
       LIMIT $3 OFFSET $4
@@ -96,7 +116,7 @@ const getConversationMessages = async (req, res) => {
   }
 };
 
-// Kullanıcının tüm konuşmalarını listele
+// Kullanıcının tüm konuşmalarını listele - Kullanıcı bazlı sistem
 const getUserConversations = async (req, res) => {
   try {
     const userId = req.user.id;
@@ -104,32 +124,56 @@ const getUserConversations = async (req, res) => {
     const result = await db.query(`
       SELECT DISTINCT
         c.id as conversation_id,
-        c.listing_id,
-        l.title as listing_title,
-        l.main_image as listing_image,
         other_user.id as other_user_id,
         other_user.name as other_user_name,
         other_user.surname as other_user_surname,
         other_user.profile_image_url as other_user_image,
         (
-          SELECT m.message 
+          SELECT 
+            CASE 
+              WHEN m.message_type = 'image' THEN 
+                CASE 
+                  WHEN m.caption IS NOT NULL AND m.caption != '' THEN m.caption
+                  ELSE 'Resim'
+                END
+              ELSE m.message 
+            END
           FROM messages m
           WHERE m.conversation_id = c.id
             AND (my_part.deleted_at IS NULL OR m.created_at > my_part.deleted_at)
             AND (
               m.sender_id = $1 
-              OR NOT EXISTS (
-                SELECT 1 FROM blocked_users bu 
-                WHERE bu.blocker_id = $1 AND bu.blocked_id = m.sender_id
+              OR (
+                NOT EXISTS (
+                  SELECT 1 FROM blocked_users bu 
+                  WHERE bu.blocker_id = $1 AND bu.blocked_id = m.sender_id
+                  AND bu.created_at <= m.created_at
+                )
+                AND (m.is_blocked_message = FALSE OR m.is_blocked_message IS NULL)
               )
-            )
-            AND (
-              m.sender_id = $1
-              OR m.is_blocked_message = FALSE
             )
           ORDER BY m.created_at DESC 
           LIMIT 1
         ) as last_message,
+        (
+          SELECT m.message_type 
+          FROM messages m
+          WHERE m.conversation_id = c.id
+            AND (my_part.deleted_at IS NULL OR m.created_at > my_part.deleted_at)
+            AND (
+              m.sender_id = $1 
+              OR (
+                NOT EXISTS (
+                  SELECT 1 FROM blocked_users bu 
+                  WHERE bu.blocker_id = $1 AND bu.blocked_id = m.sender_id
+                  AND bu.created_at <= m.created_at
+                )
+                AND (m.is_blocked_message = FALSE OR m.is_blocked_message IS NULL)
+              )
+            )
+          ORDER BY m.created_at DESC 
+          LIMIT 1
+        ) as last_message_type,
         (
           SELECT m.created_at 
           FROM messages m
@@ -137,14 +181,14 @@ const getUserConversations = async (req, res) => {
             AND (my_part.deleted_at IS NULL OR m.created_at > my_part.deleted_at)
             AND (
               m.sender_id = $1 
-              OR NOT EXISTS (
-                SELECT 1 FROM blocked_users bu 
-                WHERE bu.blocker_id = $1 AND bu.blocked_id = m.sender_id
+              OR (
+                NOT EXISTS (
+                  SELECT 1 FROM blocked_users bu 
+                  WHERE bu.blocker_id = $1 AND bu.blocked_id = m.sender_id
+                  AND bu.created_at <= m.created_at
+                )
+                AND (m.is_blocked_message = FALSE OR m.is_blocked_message IS NULL)
               )
-            )
-            AND (
-              m.sender_id = $1
-              OR m.is_blocked_message = FALSE
             )
           ORDER BY m.created_at DESC 
           LIMIT 1
@@ -158,21 +202,20 @@ const getUserConversations = async (req, res) => {
             AND (my_part.deleted_at IS NULL OR m.created_at > my_part.deleted_at)
             AND (
               m.sender_id = $1 
-              OR NOT EXISTS (
-                SELECT 1 FROM blocked_users bu 
-                WHERE bu.blocker_id = $1 AND bu.blocked_id = m.sender_id
+              OR (
+                NOT EXISTS (
+                  SELECT 1 FROM blocked_users bu 
+                  WHERE bu.blocker_id = $1 AND bu.blocked_id = m.sender_id
+                  AND bu.created_at <= m.created_at
+                )
+                AND (m.is_blocked_message = FALSE OR m.is_blocked_message IS NULL)
               )
-            )
-            AND (
-              m.sender_id = $1
-              OR m.is_blocked_message = FALSE
             )
         ) as unread_count
       FROM conversations c
       JOIN conversation_participants my_part ON c.id = my_part.conversation_id AND my_part.user_id = $1
       JOIN conversation_participants other_part ON c.id = other_part.conversation_id AND other_part.user_id != $1
       JOIN users other_user ON other_part.user_id = other_user.id
-      LEFT JOIN watch_listings l ON c.listing_id = l.id
       WHERE (
         my_part.deleted_at IS NULL 
         OR EXISTS (
@@ -180,6 +223,37 @@ const getUserConversations = async (req, res) => {
           WHERE m.conversation_id = c.id 
             AND m.created_at > my_part.deleted_at
         )
+      )
+      -- Engellenen kullanıcılardan boş sohbetleri gizle
+      AND NOT (
+        EXISTS (
+          SELECT 1 FROM blocked_users bu 
+          WHERE bu.blocker_id = $1 AND bu.blocked_id = other_user.id
+        )
+        AND (
+          SELECT m.message 
+          FROM messages m
+          WHERE m.conversation_id = c.id
+            AND (my_part.deleted_at IS NULL OR m.created_at > my_part.deleted_at)
+            AND (
+              m.sender_id = $1 
+              OR (
+                NOT EXISTS (
+                  SELECT 1 FROM blocked_users bu2 
+                  WHERE bu2.blocker_id = $1 AND bu2.blocked_id = m.sender_id
+                  AND bu2.created_at <= m.created_at
+                )
+                AND (m.is_blocked_message = FALSE OR m.is_blocked_message IS NULL)
+              )
+            )
+          ORDER BY m.created_at DESC 
+          LIMIT 1
+        ) IS NULL
+      )
+      -- Sadece mesajı olan conversation'ları göster
+      AND EXISTS (
+        SELECT 1 FROM messages m 
+        WHERE m.conversation_id = c.id
       )
       ORDER BY last_message_time DESC NULLS LAST
     `, [userId]);
@@ -201,7 +275,7 @@ const getUserConversations = async (req, res) => {
 // Mesaj gönder
 const sendMessage = async (req, res) => {
   try {
-    const { receiverId, listingId, messageType = 'text' } = req.body;
+    const { receiverId, messageType = 'text' } = req.body;
     const userId = req.user.id;
     let message = req.body.message;
     let caption = null;
@@ -213,7 +287,7 @@ const sendMessage = async (req, res) => {
     }
     
     // Konuşmayı bul veya oluştur
-    const conversationId = await findOrCreateConversation(listingId, userId, receiverId);
+    const conversationId = await findOrCreateConversation(userId, receiverId);
     
     // Gönderen engellenmiş mi kontrol et
     const isBlockedCheck = await db.query(
@@ -239,13 +313,13 @@ const sendMessage = async (req, res) => {
     
     // WebSocket ile mesajı gönder
     if (global.io) {
-      const roomId = `listing_${listingId}_${Math.min(userId, receiverId)}_${Math.max(userId, receiverId)}`;
+      const roomId = `user_${Math.min(userId, receiverId)}_${Math.max(userId, receiverId)}`;
 
       const messageData = {
         id: savedMessage.id,
         conversation_id: savedMessage.conversation_id,
         sender_id: savedMessage.sender_id,
-        listing_id: listingId,
+        receiver_id: receiverId,
         message: savedMessage.message,
         message_type: savedMessage.message_type,
         caption: savedMessage.caption,
@@ -255,11 +329,11 @@ const sendMessage = async (req, res) => {
       // Gönderen engellenmiş mi kontrol et
       if (isBlockedMessage) {
         // Sadece gönderene emit et
-        console.log('📤 Resim mesajı engellenmiş kullanıcıya gönderildi');
+        console.log('📤 Mesaj engellenmiş kullanıcıya gönderildi');
       } else {
         // Odadaki herkese emit et
         global.io.to(roomId).emit('newMessage', messageData);
-        console.log('✅ Resim mesajı WebSocket ile gönderildi:', savedMessage.id);
+        console.log('✅ Mesaj WebSocket ile gönderildi:', savedMessage.id);
       }
     }
     
@@ -289,11 +363,11 @@ const sendMessage = async (req, res) => {
 // Mesajları okundu olarak işaretle
 const markMessagesAsRead = async (req, res) => {
   try {
-    const { listingId, senderId } = req.body;
+    const { senderId } = req.body;
     const userId = req.user.id;
     
     // Konuşmayı bul
-    const conversationId = await findOrCreateConversation(listingId, userId, senderId);
+    const conversationId = await findOrCreateConversation(userId, senderId);
     
     // last_read_at güncelle
     await db.query(
@@ -318,11 +392,11 @@ const markMessagesAsRead = async (req, res) => {
 // Sohbeti kullanıcı tarafında sil
 const deleteConversation = async (req, res) => {
   try {
-    const { listingId, otherUserId } = req.params;
+    const { otherUserId } = req.params;
     const userId = req.user.id;
     
     // Konuşmayı bul
-    const conversationId = await findOrCreateConversation(listingId, userId, otherUserId);
+    const conversationId = await findOrCreateConversation(userId, otherUserId);
     
     // Kullanıcının deleted_at'ını güncelle
     const result = await db.query(

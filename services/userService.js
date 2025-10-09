@@ -31,6 +31,25 @@ class UserService {
     }
   }
 
+  async findUserByEmailOrPhone(email, phone) {
+    try {
+      const query = `
+        SELECT id, name, surname, email, phone, password_hash, is_verified, role,
+               subscription_end_date, birthday, gender, city, profile_image_url,
+               instagram_url, facebook_url, whatsappUrl, linkedin_url,
+               created_at
+        FROM users 
+        WHERE email = $1 OR phone = $2
+      `;
+      
+      const result = await db.query(query, [email.toLowerCase(), phone]);
+      return result.rows[0] || null;
+    } catch (error) {
+      console.error('Email veya telefon ile kullanıcı arama hatası:', error);
+      throw error;
+    }
+  }
+
   async findUserByEmail(email) {
     try {
       const query = `
@@ -133,7 +152,7 @@ class UserService {
         WHERE id = $${paramCount}
         RETURNING id, name, surname, email, phone, subscription_end_date, 
                   birthday, gender, city, profile_image_url, about, instagram_url,
-                  facebook_url, whatsappUrl, linkedin_url, updated_at
+                  facebook_url, whatsapp_url, linkedin_url, updated_at
       `;
 
       const result = await db.query(query, values);
@@ -149,7 +168,7 @@ class UserService {
       const query = `
         SELECT id, name, surname, email, phone, is_verified, role,
                subscription_end_date, birthday, gender, city, profile_image_url,
-               about, instagram_url, facebook_url, whatsappUrl, linkedin_url,
+               about, instagram_url, facebook_url, whatsapp_url, linkedin_url,
                created_at, updated_at
         FROM users 
         WHERE id = $1

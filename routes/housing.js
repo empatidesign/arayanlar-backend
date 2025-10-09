@@ -26,8 +26,8 @@ router.post('/create-listing', authenticateToken, checkListingScheduleWithAdminB
 // Konut ilanlarını getir
 router.get('/listings', getHousingListings);
 
-// Konut ilanı detayını getir
-router.get('/listings/:id', getHousingListingById);
+// Konut ilanı detayını getir (kimlik doğrulaması gerekli - satıcı bilgileri koruması)
+router.get('/listings/:id', authenticateToken, getHousingListingById);
 
 // Konut ilanını güncelle (kimlik doğrulaması gerekli)
 router.put('/listings/:id', authenticateToken, updateHousingListing);
