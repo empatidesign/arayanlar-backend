@@ -2,8 +2,9 @@ module.exports = {
   apps: [
     {
       name: 'arayanvar-backend',
-      script: 'server.js',
-      instances: 1, // 4 CPU core için 2 instance
+      script: './arayanvar-backend/server.js',
+      cwd: '/var/www/arayanvar',
+      instances: 1,
       exec_mode: 'cluster',
       env: {
         NODE_ENV: 'development',
@@ -49,7 +50,7 @@ module.exports = {
       host: 'YOUR_SERVER_IP',
       ref: 'origin/main',
       repo: 'YOUR_GIT_REPOSITORY_URL',
-      path: '/var/www/arayanvar',
+      path: '/var/www/arayanvar/arayanvar-backend',
       'pre-deploy-local': '',
       'post-deploy': 'npm install && pm2 reload ecosystem.config.js --env production',
       'pre-setup': ''
