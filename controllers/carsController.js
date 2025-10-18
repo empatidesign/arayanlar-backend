@@ -646,6 +646,7 @@ const getCarListings = async (req, res) => {
       FROM cars_listings cl
       LEFT JOIN users u ON cl.user_id = u.id
       WHERE cl.is_active = true AND cl.status = 'approved'
+        AND cl.created_at > NOW() - INTERVAL '7 days'
     `;
     
     const queryParams = [];
@@ -713,6 +714,7 @@ const getCarListings = async (req, res) => {
       SELECT COUNT(*) as total
       FROM cars_listings cl
       WHERE cl.is_active = true AND cl.status = 'approved'
+        AND cl.created_at > NOW() - INTERVAL '7 days'
     `;
     
     const countParams = [];

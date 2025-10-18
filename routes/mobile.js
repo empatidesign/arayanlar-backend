@@ -20,6 +20,9 @@ const {
   getHousingListingById 
 } = require('../controllers/housingController');
 
+// User listings controller'dan süre uzatma fonksiyonu import et
+const { extendListingDuration } = require('../controllers/userListingsController');
+
 // Watch listings endpoints
 router.post('/listings', auth, checkListingScheduleWithAdminBypass, checkListingLimitWithAdminBypass, incrementListingCount, createMobileListing);
 router.get('/listings', getMobileListings);
@@ -34,5 +37,8 @@ router.get('/cars/brands', getCarBrands);
 // Housing listings endpoints
 router.get('/housing/listings', getHousingListings);
 router.get('/housing/listings/:id', auth, getHousingListingById);
+
+// İlan süre uzatma endpoint'i
+router.post('/listings/extend', auth, extendListingDuration);
 
 module.exports = router;

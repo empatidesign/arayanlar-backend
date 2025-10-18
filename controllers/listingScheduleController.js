@@ -32,7 +32,7 @@ const getCachedSchedule = async (currentDay) => {
   return scheduleCache;
 };
 
-// İlan verme saatlerini getir
+// İlan verme saatlerini getir (API endpoint için)
 const getListingSchedule = async (req, res) => {
   try {
     const result = await db.query(
@@ -49,6 +49,28 @@ const getListingSchedule = async (req, res) => {
       success: false,
       message: 'İlan verme saatleri alınırken hata oluştu'
     });
+  }
+};
+
+// İlan verme saatlerini getir (scheduler için)
+const getListingScheduleForScheduler = async () => {
+  try {
+    const result = await db.query(
+      'SELECT * FROM listing_schedule WHERE is_active = TRUE ORDER BY day_of_week'
+    );
+    
+    return {
+      success: true,
+      data: result.rows,
+      is_active: result.rows.length > 0
+    };
+  } catch (error) {
+    console.error('Error fetching listing schedule for scheduler:', error);
+    return {
+      success: false,
+      data: [],
+      is_active: false
+    };
   }
 };
 
@@ -274,6 +296,7 @@ const formatRemainingTime = (milliseconds) => {
 
 module.exports = {
   getListingSchedule,
+  getListingScheduleForScheduler,
   updateListingSchedule,
   checkListingAvailability,
   getRemainingTime,

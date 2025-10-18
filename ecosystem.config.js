@@ -3,7 +3,7 @@ module.exports = {
     {
       name: 'arayanvar-backend',
       script: 'server.js',
-      instances: 2, // 4 CPU core için 2 instance
+      instances: 1, // 4 CPU core için 2 instance
       exec_mode: 'cluster',
       env: {
         NODE_ENV: 'development',

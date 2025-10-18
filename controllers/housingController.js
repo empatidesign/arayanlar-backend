@@ -209,18 +209,18 @@ const getHousingListings = async (req, res) => {
     } = req.query;
 
     const offset = (page - 1) * limit;
-    let whereConditions = ["status = 'approved'"];
+    let whereConditions = ["hl.status = 'approved'", "hl.created_at > NOW() - INTERVAL '7 days'"];
     let queryParams = [];
     let paramIndex = 1;
 
     if (district) {
-      whereConditions.push(`district ILIKE $${paramIndex}`);
+      whereConditions.push(`hl.district ILIKE $${paramIndex}`);
       queryParams.push(`%${district}%`);
       paramIndex++;
     }
 
     if (property_type) {
-      whereConditions.push(`property_type = $${paramIndex}`);
+      whereConditions.push(`hl.property_type = $${paramIndex}`);
       queryParams.push(property_type);
       paramIndex++;
     }
@@ -228,19 +228,19 @@ const getHousingListings = async (req, res) => {
 
 
     if (min_price) {
-      whereConditions.push(`price >= $${paramIndex}`);
+      whereConditions.push(`hl.price >= $${paramIndex}`);
       queryParams.push(min_price);
       paramIndex++;
     }
 
     if (max_price) {
-      whereConditions.push(`price <= $${paramIndex}`);
+      whereConditions.push(`hl.price <= $${paramIndex}`);
       queryParams.push(max_price);
       paramIndex++;
     }
 
     if (room_count) {
-      whereConditions.push(`room_count = $${paramIndex}`);
+      whereConditions.push(`hl.room_count = $${paramIndex}`);
       queryParams.push(room_count);
       paramIndex++;
     }
@@ -263,13 +263,16 @@ const getHousingListings = async (req, res) => {
     const result = await db.query(query, queryParams);
 
     // Toplam sayıyı al
+    const countQueryParams = queryParams.slice(0, -2); // limit ve offset'i çıkar
     const countQuery = `
       SELECT COUNT(*) as total
       FROM housing_listings hl
+      LEFT JOIN users u ON hl.user_id = u.id
+      LEFT JOIN districts d ON LOWER(d.name) = LOWER(hl.district) AND d.is_active = true
       ${whereClause}
     `;
 
-    const countResult = await db.query(countQuery, queryParams.slice(0, -2));
+    const countResult = await db.query(countQuery, countQueryParams);
     const total = parseInt(countResult.rows[0].total);
 
     res.json({

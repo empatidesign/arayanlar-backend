@@ -1,6 +1,6 @@
 const cron = require('node-cron');
 const { resetAllUserCounts } = require('../controllers/listingLimitsController');
-const { getListingSchedule } = require('../controllers/listingScheduleController');
+const { getListingScheduleForScheduler } = require('../controllers/listingScheduleController');
 
 class ListingLimitScheduler {
   constructor() {
@@ -19,9 +19,9 @@ class ListingLimitScheduler {
 
     try {
       // Mevcut schedule bilgisini al
-      const schedule = await getListingSchedule();
+      const schedule = await getListingScheduleForScheduler();
       
-      if (!schedule || !schedule.is_active) {
+      if (!schedule || !schedule.success || !schedule.is_active) {
         console.log('Listing schedule is not active, scheduler will not start');
         return;
       }
