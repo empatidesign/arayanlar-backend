@@ -2,8 +2,8 @@ module.exports = {
   apps: [
     {
       name: 'arayanvar-backend',
-      script: './arayanvar-backend/server.js',
-      cwd: '/var/www/arayanvar',
+      script: './server.js',
+      cwd: '/var/www/arayanvar/arayanvar-backend',
       instances: 1,
       exec_mode: 'cluster',
       env: {
@@ -40,7 +40,7 @@ module.exports = {
       listen_timeout: 10000,
       
       // Environment variables file
-      env_file: '.env.production'
+      env_file: '.env'
     }
   ],
   
