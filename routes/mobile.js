@@ -28,17 +28,17 @@ const { extendListingDuration } = require('../controllers/userListingsController
 
 // Watch listings endpoints
 router.post('/listings', auth, checkListingScheduleWithAdminBypass, checkListingLimitWithAdminBypass, incrementListingCount, createMobileListing);
-router.get('/listings', getMobileListings);
+router.get('/listings', auth, getMobileListings);
 router.get('/listings/:id', auth, getMobileListingById);
 
 // Car listings endpoints
-router.get('/cars/listings', getCarListings);
+router.get('/cars/listings', auth, getCarListings);
 
 // Car brands endpoint for mobile
-router.get('/cars/brands', getCarBrands);
+router.get('/cars/brands', auth, getCarBrands);
 
 // Housing listings endpoints
-router.get('/housing/listings', getHousingListings);
+router.get('/housing/listings', auth, getHousingListings);
 router.get('/housing/listings/:id', auth, getHousingListingById);
 
 // İlan süre uzatma endpoint'i

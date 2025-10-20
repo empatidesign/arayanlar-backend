@@ -14,17 +14,17 @@ const {
   deleteDistrict
 } = districtsController;
 
-// Tüm ilçeleri getir
-router.get('/', getDistricts);
+// Tüm ilçeleri getir (token gerekli)
+router.get('/', auth, getDistricts);
 
-// İstanbul ilçelerini getir (mobil uygulama için)
-router.get('/istanbul', getIstanbulDistricts);
+// İstanbul ilçelerini getir (token gerekli)
+router.get('/istanbul', auth, getIstanbulDistricts);
 
-// İlçe ara
-router.get('/search', searchDistricts);
+// İlçe ara (token gerekli)
+router.get('/search', auth, searchDistricts);
 
-// Belirli bir ilçeyi getir
-router.get('/:id', getDistrictById);
+// Belirli bir ilçeyi getir (token gerekli)
+router.get('/:id', auth, getDistrictById);
 
 // Admin routes - ilçe yönetimi
 router.post('/', auth, upload.single('image'), createDistrict);

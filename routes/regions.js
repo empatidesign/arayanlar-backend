@@ -15,18 +15,18 @@ const {
 } = require('../controllers/regionsController');
 
 // Ülkeler
-router.get('/countries', getAllCountries);
-router.get('/countries/:id', getCountryById);
+router.get('/countries', authenticateToken, getAllCountries);
+router.get('/countries/:id', authenticateToken, getCountryById);
 router.post('/countries', adminLimiter, authenticateToken, requireAdmin, createCountry);
 
 // Şehirler
-router.get('/cities', getAllCities);
-router.get('/cities/:id', getCityById);
+router.get('/cities', authenticateToken, getAllCities);
+router.get('/cities/:id', authenticateToken, getCityById);
 router.post('/cities', adminLimiter, authenticateToken, requireAdmin, createCity);
 
 // İlçeler
-router.get('/districts', getAllDistricts);
-router.get('/districts/:id', getDistrictById);
+router.get('/districts', authenticateToken, getAllDistricts);
+router.get('/districts/:id', authenticateToken, getDistrictById);
 router.post('/districts', adminLimiter, authenticateToken, requireAdmin, createDistrict);
 
 module.exports = router;

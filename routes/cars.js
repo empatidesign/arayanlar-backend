@@ -22,26 +22,26 @@ const {
   getCarProductColors
 } = carsController;
 
-// Araba markalarını listele (public - mobil uygulama için)
-router.get('/brands', getCarBrands);
+// Araba markalarını listele (token gerekli)
+router.get('/brands', authenticateToken, getCarBrands);
 
-// Popüler araba markalarını getir (public - mobil uygulama için)
-router.get('/brands/popular', getPopularCarBrands);
+// Popüler araba markalarını getir (token gerekli)
+router.get('/brands/popular', authenticateToken, getPopularCarBrands);
 
-// Markaya göre araba modellerini listele (public - mobil uygulama için)
-router.get('/brands/:brandId/models', getCarModelsByBrand);
+// Markaya göre araba modellerini listele (token gerekli)
+router.get('/brands/:brandId/models', authenticateToken, getCarModelsByBrand);
 
-// Tüm araba modellerini getir (public - mobil uygulama için)
-router.get('/models', getAllCarModels);
+// Tüm araba modellerini getir (token gerekli)
+router.get('/models', authenticateToken, getAllCarModels);
 
-// Araba modeli detaylarını getir (public - mobil uygulama için)
-router.get('/models/:modelId', getCarModelDetails);
+// Araba modeli detaylarını getir (token gerekli)
+router.get('/models/:modelId', authenticateToken, getCarModelDetails);
 
-// Modele göre motor hacimlerini getir (public - mobil uygulama için)
-router.get('/models/:modelId/engines', getEnginesByModel);
+// Modele göre motor hacimlerini getir (token gerekli)
+router.get('/models/:modelId/engines', authenticateToken, getEnginesByModel);
 
-// Araba modeli renk seçeneklerini getir (public - mobil uygulama için)
-router.get('/product-colors/:productId', getCarProductColors);
+// Araba modeli renk seçeneklerini getir (token gerekli)
+router.get('/product-colors/:productId', authenticateToken, getCarProductColors);
 
 // Models endpoint'i için brand_id query parametresi ile
 router.get('/', (req, res) => {

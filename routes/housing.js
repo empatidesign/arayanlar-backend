@@ -29,8 +29,8 @@ const {
 // Konut ilanı oluştur (kimlik doğrulaması, zaman kontrolü ve limit kontrolü gerekli)
 router.post('/create-listing', authenticateToken, checkListingScheduleWithAdminBypass, checkListingLimitWithAdminBypass, incrementListingCount, createHousingListing);
 
-// Konut ilanlarını getir
-router.get('/listings', getHousingListings);
+// Konut ilanlarını getir (token gerekli)
+router.get('/listings', authenticateToken, getHousingListings);
 
 // Konut ilanı detayını getir (admin yetkisi gerekli)
 router.get('/listings/:id', authenticateToken, requireAdmin, getHousingListingById);

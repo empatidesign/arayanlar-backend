@@ -42,8 +42,8 @@ const {
 // requireAdmin middleware from adminController
 const { requireAdmin } = require('../controllers/adminController');
 
-// Saat markalarını listele (public)
-router.get('/brands', getWatchBrands);
+// Saat markalarını listele (token gerekli)
+router.get('/brands', authenticateToken, getWatchBrands);
 
 // Admin - Saat markalarını listele (admin only)
 router.get('/admin/brands', authenticateToken, requireAdmin, getWatchBrandsForAdmin);
@@ -57,11 +57,11 @@ router.put('/brands/:id', authenticateToken, requireAdmin, watchBrandUpload.sing
 // Admin - Saat markası sil
 router.delete('/brands/:id', authenticateToken, requireAdmin, deleteWatchBrand);
 
-// Popüler saat markalarını getir
-router.get('/brands/popular', getPopularWatchBrands);
+// Popüler saat markalarını listele (token gerekli)
+router.get('/brands/popular', authenticateToken, getPopularWatchBrands);
 
-// Markaya göre saat ürünlerini listele
-router.get('/brands/:brandId/products', getWatchProductsByBrand);
+// Markaya göre saat ürünlerini listele (token gerekli)
+router.get('/brands/:brandId/products', authenticateToken, getWatchProductsByBrand);
 
 // Admin - Saat modellerini listele (admin only)
 router.get('/models', authenticateToken, requireAdmin, getAllWatchModels);
@@ -92,20 +92,20 @@ router.get('/', (req, res) => {
   });
 });
 
-// Ürün detayları ve renk seçeneklerini getir
-router.get('/products/:productId', getWatchProductDetails);
+// Saat ürün detaylarını getir (token gerekli)
+router.get('/products/:productId', authenticateToken, getWatchProductDetails);
 
-// Ürün renklerini getir
-router.get('/product-colors/:productId', getProductColors);
+// Ürün renklerini getir (token gerekli)
+router.get('/product-colors/:productId', authenticateToken, getProductColors);
 
-// Belirli bir rengin resimlerini getir
-router.get('/colors/:colorId/images', getColorImages);
+// Renk resimlerini getir (token gerekli)
+router.get('/colors/:colorId/images', authenticateToken, getColorImages);
 
-// Saat arama
-router.get('/search', searchWatches);
+// Saat arama (token gerekli)
+router.get('/search', authenticateToken, searchWatches);
 
-// Mobile listings - İlanları getir
-router.get('/listings', getMobileListings);
+// Saat ilanlarını listele (token gerekli)
+router.get('/listings', authenticateToken, getMobileListings);
 
 // Mobile listings - Tek ilan detayı getir
 // Mobile listings endpoints (kimlik doğrulaması gerekli - satıcı bilgileri koruması)

@@ -1,9 +1,10 @@
 const express = require('express');
 const router = express.Router();
 const db = require('../services/database');
+const { authenticateToken } = require('../middleware/auth');
 
-// Tüm kategorileri getir
-router.get('/', async (req, res) => {
+// Tüm kategorileri getir (token gerekli)
+router.get('/', authenticateToken, async (req, res) => {
   try {
     const result = await db.query('SELECT * FROM sections ORDER BY name ASC');
     
@@ -20,8 +21,8 @@ router.get('/', async (req, res) => {
   }
 });
 
-// Tek kategori getir
-router.get('/:id', async (req, res) => {
+// Tek kategori getir (token gerekli)
+router.get('/:id', authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
     

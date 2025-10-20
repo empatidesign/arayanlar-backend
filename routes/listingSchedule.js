@@ -14,10 +14,10 @@ router.get('/admin/schedule', authenticateToken, requireAdmin, getListingSchedul
 // İlan verme saatlerini güncelle (admin)
 router.put('/admin/schedule', authenticateToken, requireAdmin, updateListingSchedule);
 
-// Şu anki durumu kontrol et (herkese açık)
-router.get('/availability', checkListingAvailability);
+// Şu anki durumu kontrol et (token gerekli)
+router.get('/availability', authenticateToken, checkListingAvailability);
 
-// Kalan süreyi getir (herkese açık)
-router.get('/remaining-time', getRemainingTime);
+// Kalan süreyi getir (token gerekli)
+router.get('/remaining-time', authenticateToken, getRemainingTime);
 
 module.exports = router;

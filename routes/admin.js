@@ -70,6 +70,13 @@ router.put('/users/:id', updateUser);
 router.delete('/users/:id', deleteUser);
 router.post('/users/:id/upload-image', profileImageUpload.single('image'), uploadProfileImage);
 
+// Dashboard endpoint'leri adminDashboardController'dan import ediliyor
+const { getDashboardStats, getRecentMessages } = require('../controllers/adminControllers/adminDashboardController');
+
+// Dashboard endpoint'leri
+router.get('/dashboard/stats', getDashboardStats);
+router.get('/dashboard/messages', getRecentMessages);
+
 // Watch listing endpoint'leri adminWatchController'dan import ediliyor
 const { getPendingWatchListings, approveWatchListing, rejectWatchListing } = require('../controllers/adminControllers/adminWatchController');
 
