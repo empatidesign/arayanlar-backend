@@ -3,6 +3,8 @@ const router = express.Router();
 const { authenticateToken } = require('../middleware/auth');
 const { checkListingScheduleWithAdminBypass } = require('../middleware/listingSchedule');
 const { checkListingLimitWithAdminBypass, incrementListingCount } = require('../middleware/listingLimit');
+
+// Public watch functions from watchController
 const {
   getWatchBrands,
   getWatchProductsByBrand,
@@ -13,35 +15,47 @@ const {
   getProductColors,
   createMobileListing,
   getMobileListings,
-  getMobileListingById,
-  // Admin yönetimi fonksiyonları
+  getMobileListingById
+} = require('../controllers/watchController');
+
+// Admin functions from adminWatchController
+const {
+  getWatchBrandsForAdmin,
   createWatchBrand,
   updateWatchBrand,
   deleteWatchBrand,
+  watchBrandUpload,
   getAllWatchModels,
   createWatchModel,
   updateWatchModel,
   deleteWatchModel,
   toggleWatchModelStatus,
+  watchModelUpload,
   getAllWatchListingsForAdmin,
+  getPendingWatchListings,
   approveWatchListing,
   rejectWatchListing,
   deleteWatchListingByAdmin,
-  upload,
-  modelUpload
-} = require('../controllers/watchController');
+  extendWatchListingDuration
+} = require('../controllers/adminControllers/adminWatchController');
 
-// Saat markalarını listele
+// requireAdmin middleware from adminController
+const { requireAdmin } = require('../controllers/adminController');
+
+// Saat markalarını listele (public)
 router.get('/brands', getWatchBrands);
 
+// Admin - Saat markalarını listele (admin only)
+router.get('/admin/brands', authenticateToken, requireAdmin, getWatchBrandsForAdmin);
+
 // Admin - Saat markası oluştur
-router.post('/brands', authenticateToken, upload.single('logo'), createWatchBrand);
+router.post('/brands', authenticateToken, requireAdmin, watchBrandUpload.single('logo'), createWatchBrand);
 
 // Admin - Saat markası güncelle
-router.put('/brands/:id', authenticateToken, upload.single('logo'), updateWatchBrand);
+router.put('/brands/:id', authenticateToken, requireAdmin, watchBrandUpload.single('logo'), updateWatchBrand);
 
 // Admin - Saat markası sil
-router.delete('/brands/:id', authenticateToken, deleteWatchBrand);
+router.delete('/brands/:id', authenticateToken, requireAdmin, deleteWatchBrand);
 
 // Popüler saat markalarını getir
 router.get('/brands/popular', getPopularWatchBrands);
@@ -49,20 +63,20 @@ router.get('/brands/popular', getPopularWatchBrands);
 // Markaya göre saat ürünlerini listele
 router.get('/brands/:brandId/products', getWatchProductsByBrand);
 
-// Tüm saat modellerini listele (Admin)
-router.get('/models', authenticateToken, getAllWatchModels);
+// Admin - Saat modellerini listele (admin only)
+router.get('/models', authenticateToken, requireAdmin, getAllWatchModels);
 
 // Admin - Saat modeli oluştur
-router.post('/models', authenticateToken, modelUpload, createWatchModel);
+router.post('/models', authenticateToken, requireAdmin, watchModelUpload, createWatchModel);
 
 // Admin - Saat modeli güncelle
-router.put('/models/:id', authenticateToken, modelUpload, updateWatchModel);
+router.put('/models/:id', authenticateToken, requireAdmin, watchModelUpload, updateWatchModel);
 
 // Admin - Saat modeli sil
-router.delete('/models/:id', authenticateToken, deleteWatchModel);
+router.delete('/models/:id', authenticateToken, requireAdmin, deleteWatchModel);
 
 // Admin - Saat modeli durumunu değiştir
-router.patch('/models/:id/toggle-status', authenticateToken, toggleWatchModelStatus);
+router.patch('/models/:id/toggle-status', authenticateToken, requireAdmin, toggleWatchModelStatus);
 
 // Products endpoint'i için brand_id query parametresi ile
 router.get('/', (req, res) => {
@@ -100,16 +114,22 @@ router.get('/listings/:id', authenticateToken, getMobileListingById);
 // Mobile listings - İlan oluştur (kimlik doğrulaması, zaman kontrolü ve limit kontrolü gerekli)
 router.post('/listings', authenticateToken, checkListingScheduleWithAdminBypass, checkListingLimitWithAdminBypass, incrementListingCount, createMobileListing);
 
-// Admin - Tüm saat ilanlarını getir
-router.get('/admin/listings', authenticateToken, getAllWatchListingsForAdmin);
+// Admin - Saat ilanlarını listele
+router.get('/admin/listings', authenticateToken, requireAdmin, getAllWatchListingsForAdmin);
+
+// Admin - Bekleyen saat ilanlarını listele
+router.get('/admin/listings/pending', authenticateToken, requireAdmin, getPendingWatchListings);
 
 // Admin - Saat ilanını onayla
-router.patch('/admin/listings/:id/approve', authenticateToken, approveWatchListing);
+router.patch('/admin/listings/:id/approve', authenticateToken, requireAdmin, approveWatchListing);
 
 // Admin - Saat ilanını reddet
-router.patch('/admin/listings/:id/reject', authenticateToken, rejectWatchListing);
+router.patch('/admin/listings/:id/reject', authenticateToken, requireAdmin, rejectWatchListing);
+
+// Admin - Saat ilanı süresini uzat
+router.patch('/admin/listings/:id/extend-duration', authenticateToken, requireAdmin, extendWatchListingDuration);
 
 // Admin - Saat ilanını sil
-router.delete('/admin/listings/:id', authenticateToken, deleteWatchListingByAdmin);
+router.delete('/admin/listings/:id', authenticateToken, requireAdmin, deleteWatchListingByAdmin);
 
 module.exports = router;

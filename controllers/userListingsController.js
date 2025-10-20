@@ -257,58 +257,58 @@ const extendListingDuration = async (req, res) => {
       case 'watch':
         tableName = 'watch_listings';
         checkQuery = `
-          SELECT id, status, created_at, user_id 
+          SELECT id, status, expires_at, user_id 
           FROM watch_listings 
           WHERE id = $1 AND user_id = $2
         `;
         query = `
           UPDATE watch_listings 
-          SET created_at = NOW(), 
+          SET expires_at = NOW() + INTERVAL '7 days',
               updated_at = NOW(),
               status = CASE 
                 WHEN status = 'expired' THEN 'approved'
                 ELSE status
               END
           WHERE id = $1 AND user_id = $2
-          RETURNING id, title, status, created_at
+          RETURNING id, title, status, expires_at
         `;
         break;
       case 'car':
         tableName = 'cars_listings';
         checkQuery = `
-          SELECT id, status, created_at, user_id 
+          SELECT id, status, expires_at, user_id 
           FROM cars_listings 
           WHERE id = $1 AND user_id = $2
         `;
         query = `
           UPDATE cars_listings 
-          SET created_at = NOW(), 
+          SET expires_at = NOW() + INTERVAL '7 days',
               updated_at = NOW(),
               status = CASE 
                 WHEN status = 'expired' THEN 'approved'
                 ELSE status
               END
           WHERE id = $1 AND user_id = $2
-          RETURNING id, title, status, created_at
+          RETURNING id, title, status, expires_at
         `;
         break;
       case 'housing':
         tableName = 'housing_listings';
         checkQuery = `
-          SELECT id, status, created_at, user_id 
+          SELECT id, status, expires_at, user_id 
           FROM housing_listings 
           WHERE id = $1 AND user_id = $2
         `;
         query = `
           UPDATE housing_listings 
-          SET created_at = NOW(), 
+          SET expires_at = NOW() + INTERVAL '7 days',
               updated_at = NOW(),
               status = CASE 
                 WHEN status = 'expired' THEN 'approved'
                 ELSE status
               END
           WHERE id = $1 AND user_id = $2
-          RETURNING id, title, status, created_at
+          RETURNING id, title, status, expires_at
         `;
         break;
       default:
@@ -331,14 +331,31 @@ const extendListingDuration = async (req, res) => {
     const listing = checkResult.rows[0];
     
     // İlanın süresi dolmuş mu kontrol et
-    const createdAt = new Date(listing.created_at);
-    const now = new Date();
-    const daysDiff = Math.floor((now - createdAt) / (1000 * 60 * 60 * 24));
+    let isExpired = false;
     
-    if (listing.status !== 'approved' || daysDiff < 7) {
+    if (listingType === 'housing' || listingType === 'watch') {
+      // Housing ve watch ilanları için expires_at tarihini kontrol et
+      const expiresAt = new Date(listing.expires_at);
+      const now = new Date();
+      isExpired = expiresAt <= now;
+    } else {
+      // Car ilanları için expires_at tarihini kontrol et (artık tüm ilan türleri expires_at kullanıyor)
+      const expiresAt = new Date(listing.expires_at);
+      const now = new Date();
+      isExpired = expiresAt <= now;
+    }
+    
+    if (listing.status !== 'approved' && listing.status !== 'expired') {
       return res.status(400).json({
         success: false,
-        message: 'Sadece süresi dolmuş onaylanmış ilanların süresi uzatılabilir'
+        message: 'Sadece onaylanmış veya süresi dolmuş ilanların süresi uzatılabilir'
+      });
+    }
+    
+    if (!isExpired && listing.status !== 'expired') {
+      return res.status(400).json({
+        success: false,
+        message: 'Sadece süresi dolmuş ilanların süresi uzatılabilir'
       });
     }
 
@@ -361,7 +378,7 @@ const extendListingDuration = async (req, res) => {
         id: updatedListing.id,
         title: updatedListing.title,
         status: updatedListing.status,
-        newExpiryDate: new Date(updatedListing.created_at.getTime() + 7 * 24 * 60 * 60 * 1000)
+        newExpiryDate: updatedListing.expires_at
       }
     });
 

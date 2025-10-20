@@ -1,89 +1,6 @@
 const db = require('../services/database');
-const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
-
-// Multer konfigürasyonu
-const storage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    const uploadPath = path.join(__dirname, '../uploads/brands');
-    if (!fs.existsSync(uploadPath)) {
-      fs.mkdirSync(uploadPath, { recursive: true });
-    }
-    cb(null, uploadPath);
-  },
-  filename: function (req, file, cb) {
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    cb(null, 'brand-' + uniqueSuffix + path.extname(file.originalname));
-  }
-});
-
-// Multer konfigürasyonu - modeller için
-const modelStorage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    let uploadPath;
-    
-    // Color images için ayrı klasör
-    if (file.fieldname.startsWith('color_image_')) {
-      uploadPath = path.join(__dirname, '../uploads/models/colors');
-    } else {
-      uploadPath = path.join(__dirname, '../uploads/models');
-    }
-    
-    if (!fs.existsSync(uploadPath)) {
-      fs.mkdirSync(uploadPath, { recursive: true });
-    }
-    cb(null, uploadPath);
-  },
-  filename: function (req, file, cb) {
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    if (file.fieldname.startsWith('color_image_')) {
-      cb(null, 'color-' + uniqueSuffix + path.extname(file.originalname));
-    } else {
-      cb(null, 'model-' + uniqueSuffix + path.extname(file.originalname));
-    }
-  }
-});
-
-const modelUpload = multer({ 
-  storage: modelStorage,
-  fileFilter: function (req, file, cb) {
-    if (file.mimetype.startsWith('image/')) {
-      cb(null, true);
-    } else {
-      cb(new Error('Sadece resim dosyaları yüklenebilir!'), false);
-    }
-  },
-  limits: {
-    fileSize: 5 * 1024 * 1024 // 5MB limit
-  }
-}).fields([
-  { name: 'image', maxCount: 1 },
-  { name: 'color_image_0', maxCount: 1 },
-  { name: 'color_image_1', maxCount: 1 },
-  { name: 'color_image_2', maxCount: 1 },
-  { name: 'color_image_3', maxCount: 1 },
-  { name: 'color_image_4', maxCount: 1 },
-  { name: 'color_image_5', maxCount: 1 },
-  { name: 'color_image_6', maxCount: 1 },
-  { name: 'color_image_7', maxCount: 1 },
-  { name: 'color_image_8', maxCount: 1 },
-  { name: 'color_image_9', maxCount: 1 }
-]);
-
-const upload = multer({ 
-  storage: storage,
-  fileFilter: function (req, file, cb) {
-    if (file.mimetype.startsWith('image/')) {
-      cb(null, true);
-    } else {
-      cb(new Error('Sadece resim dosyaları yüklenebilir!'), false);
-    }
-  },
-  limits: {
-    fileSize: 5 * 1024 * 1024 // 5MB limit
-  }
-});
 
 // Araba markalarını listele
 const getCarBrands = async (req, res) => {
@@ -118,36 +35,11 @@ const getCarBrands = async (req, res) => {
   }
 };
 
-// Araba ilanını sil (Admin)
-const deleteCarListingByAdmin = async (req, res) => {
-  try {
-    const { id } = req.params;
 
-    // İlanın mevcut olup olmadığını kontrol et
-    const existingListing = await db.query('SELECT * FROM cars_listings WHERE id = $1', [id]);
-    if (existingListing.rows.length === 0) {
-      return res.status(404).json({
-        success: false,
-        message: 'İlan bulunamadı'
-      });
-    }
 
-    // İlanı sil
-    await db.query('DELETE FROM cars_listings WHERE id = $1', [id]);
-
-    res.json({
-      success: true,
-      message: 'İlan başarıyla silindi'
-    });
-  } catch (error) {
-    console.error('İlan silinirken hata:', error);
-    res.status(500).json({
-      success: false,
-      message: 'İlan silinemedi',
-      error: error.message
-    });
-  }
-};
+// ADMIN FUNCTIONS - MOVED TO adminController.js
+// These functions have been moved to adminController.js for better organization
+// and proper admin authentication/authorization
 
 // Tüm araba modellerini listele (admin için)
 const getAllCarModels = async (req, res) => {
@@ -1042,136 +934,6 @@ const getCarListingDetail = async (req, res) => {
   }
 };
 
-// Araba markası oluştur
-const createCarBrand = async (req, res) => {
-  try {
-    const { name, country } = req.body;
-    let logo_url = null;
-
-    if (req.file) {
-      logo_url = `/uploads/brands/${req.file.filename}`;
-    }
-
-    const result = await db.query(`
-      INSERT INTO cars_brands (name, logo_url, country, is_active, created_at, updated_at)
-      VALUES ($1, $2, $3, true, NOW(), NOW())
-      RETURNING *
-    `, [name, logo_url, country]);
-
-    res.status(201).json({
-      success: true,
-      message: 'Araba markası başarıyla oluşturuldu',
-      data: result.rows[0]
-    });
-  } catch (error) {
-    console.error('Araba markası oluşturulurken hata:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Araba markası oluşturulamadı',
-      error: error.message
-    });
-  }
-};
-
-// Araba markası güncelle
-const updateCarBrand = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { name, country, is_active } = req.body;
-    let logo_url = null;
-
-    // Mevcut markayı kontrol et
-    const existingBrand = await db.query('SELECT * FROM cars_brands WHERE id = $1', [id]);
-    if (existingBrand.rows.length === 0) {
-      return res.status(404).json({
-        success: false,
-        message: 'Araba markası bulunamadı'
-      });
-    }
-
-    if (req.file) {
-      logo_url = `/uploads/brands/${req.file.filename}`;
-      
-      // Eski resmi sil
-      if (existingBrand.rows[0].logo_url) {
-        const oldImagePath = path.join(__dirname, '..', existingBrand.rows[0].logo_url);
-        if (fs.existsSync(oldImagePath)) {
-          fs.unlinkSync(oldImagePath);
-        }
-      }
-    } else {
-      logo_url = existingBrand.rows[0].logo_url;
-    }
-
-    const result = await db.query(`
-      UPDATE cars_brands 
-      SET name = $1, logo_url = $2, country = $3, is_active = $4, updated_at = NOW()
-      WHERE id = $5
-      RETURNING *
-    `, [name, logo_url, country, is_active, id]);
-
-    res.json({
-      success: true,
-      message: 'Araba markası başarıyla güncellendi',
-      data: result.rows[0]
-    });
-  } catch (error) {
-    console.error('Araba markası güncellenirken hata:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Araba markası güncellenemedi',
-      error: error.message
-    });
-  }
-};
-
-// Araba markası sil
-const deleteCarBrand = async (req, res) => {
-  try {
-    const { id } = req.params;
-
-    // Mevcut markayı kontrol et
-    const existingBrand = await db.query('SELECT * FROM cars_brands WHERE id = $1', [id]);
-    if (existingBrand.rows.length === 0) {
-      return res.status(404).json({
-        success: false,
-        message: 'Araba markası bulunamadı'
-      });
-    }
-
-    // Markaya ait modeller var mı kontrol et
-    const modelsCount = await db.query('SELECT COUNT(*) FROM cars_products WHERE brand_id = $1', [id]);
-    if (parseInt(modelsCount.rows[0].count) > 0) {
-      return res.status(400).json({
-        success: false,
-        message: 'Bu markaya ait modeller bulunduğu için silinemez'
-      });
-    }
-
-    // Resmi sil
-    if (existingBrand.rows[0].logo_url) {
-      const imagePath = path.join(__dirname, '..', existingBrand.rows[0].logo_url);
-      if (fs.existsSync(imagePath)) {
-        fs.unlinkSync(imagePath);
-      }
-    }
-
-    await db.query('DELETE FROM cars_brands WHERE id = $1', [id]);
-
-    res.json({
-      success: true,
-      message: 'Araba markası başarıyla silindi'
-    });
-  } catch (error) {
-    console.error('Araba markası silinirken hata:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Araba markası silinemedi',
-      error: error.message
-    });
-  }
-};
-
 // Araba modeli oluştur
 const createCarModel = async (req, res) => {
   try {
@@ -1434,275 +1196,31 @@ const toggleCarModelStatus = async (req, res) => {
   }
 };
 
-// Admin için tüm araba ilanlarını getir
-const getAllCarListingsForAdmin = async (req, res) => {
-  try {
-    const { 
-      page = 1, 
-      limit = 20,
-      status,
-      brand,
-      search
-    } = req.query;
-    
-    // Sayfalama hesaplamaları
-    const offset = (page - 1) * limit;
-    
-    let query = `
-      SELECT 
-        cl.*,
-        u.name as user_name,
-        u.surname as user_surname,
-        u.email as user_email,
-        u.phone as user_phone,
-        u.profile_image_url as user_profile_image
-      FROM cars_listings cl
-      LEFT JOIN users u ON cl.user_id = u.id
-      WHERE 1=1
-    `;
-    
-    const queryParams = [];
-    
-    // Durum filtresi
-    if (status) {
-      query += ` AND cl.status = $${queryParams.length + 1}`;
-      queryParams.push(status);
-    }
-    
-    // Marka filtresi
-    if (brand) {
-      query += ` AND LOWER(cl.brand_name) LIKE LOWER($${queryParams.length + 1})`;
-      queryParams.push(`%${brand}%`);
-    }
-    
-    // Arama filtresi
-    if (search) {
-      query += ` AND (LOWER(cl.title) LIKE LOWER($${queryParams.length + 1}) OR LOWER(cl.description) LIKE LOWER($${queryParams.length + 1}))`;
-      queryParams.push(`%${search}%`);
-      queryParams.push(`%${search}%`);
-    }
-    
-    // Sıralama ve sayfalama
-    query += ` ORDER BY cl.created_at DESC LIMIT $${queryParams.length + 1} OFFSET $${queryParams.length + 2}`;
-    queryParams.push(parseInt(limit));
-    queryParams.push(offset);
-    
-    const result = await db.query(query, queryParams);
-    
-    // Toplam sayıyı al
-    let countQuery = `
-      SELECT COUNT(*) as count
-      FROM cars_listings cl
-      LEFT JOIN users u ON cl.user_id = u.id
-      WHERE 1=1
-    `;
-    
-    const countParams = [];
-    
-    if (status) {
-      countQuery += ` AND cl.status = $${countParams.length + 1}`;
-      countParams.push(status);
-    }
-    
-    if (brand) {
-      countQuery += ` AND LOWER(cl.brand_name) LIKE LOWER($${countParams.length + 1})`;
-      countParams.push(`%${brand}%`);
-    }
-    
-    if (search) {
-      countQuery += ` AND (LOWER(cl.title) LIKE LOWER($${countParams.length + 1}) OR LOWER(cl.description) LIKE LOWER($${countParams.length + 1}))`;
-      countParams.push(`%${search}%`);
-      countParams.push(`%${search}%`);
-    }
-    
-    const countResult = await db.query(countQuery, countParams);
+// ADMIN FUNCTIONS - MOVED TO adminController.js
+// These functions have been moved to adminController.js for better organization
+// and proper admin authentication/authorization
 
-    res.json({
-      success: true,
-      data: {
-        listings: result.rows,
-        pagination: {
-          page: parseInt(page),
-          limit: parseInt(limit),
-          total: parseInt(countResult.rows[0].count),
-          totalPages: Math.ceil(countResult.rows[0].count / limit)
-        }
-      }
-    });
-  } catch (error) {
-    console.error('Admin araba ilanları getirilirken hata:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Araba ilanları getirilemedi'
-    });
-  }
-};
-
-// Araba ilanını onayla
-const approveCarListing = async (req, res) => {
-  try {
-    const { id } = req.params;
-
-    // İlanın mevcut bilgilerini al
-    const existingListing = await db.query(
-      'SELECT duration_days FROM cars_listings WHERE id = $1',
-      [id]
-    );
-
-    if (existingListing.rows.length === 0) {
-      return res.status(404).json({
-        success: false,
-        message: 'İlan bulunamadı'
-      });
-    }
-
-    const durationDays = existingListing.rows[0].duration_days || 7;
-
-    // İlanı onayla ve expires_at'i hesapla
-    const result = await db.query(`
-      UPDATE cars_listings 
-      SET status = 'approved', 
-          expires_at = NOW() + INTERVAL '1 day' * $2,
-          rejection_reason = NULL,
-          updated_at = CURRENT_TIMESTAMP 
-      WHERE id = $1
-      RETURNING *
-    `, [id, durationDays]);
-
-    res.json({
-      success: true,
-      message: `İlan başarıyla onaylandı ve ${durationDays} günlük süre başlatıldı`,
-      data: result.rows[0]
-    });
-  } catch (error) {
-    console.error('İlan onaylanırken hata:', error);
-    res.status(500).json({
-      success: false,
-      message: 'İlan onaylanamadı',
-      error: error.message
-    });
-  }
-};
-
-// Araba ilanını reddet
-const rejectCarListing = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { rejection_reason } = req.body;
-
-    if (!rejection_reason || rejection_reason.trim() === '') {
-      return res.status(400).json({
-        success: false,
-        message: 'Reddetme sebebi gereklidir'
-      });
-    }
-
-    // İlanın mevcut olup olmadığını kontrol et
-    const existingListing = await db.query('SELECT * FROM cars_listings WHERE id = $1', [id]);
-    if (existingListing.rows.length === 0) {
-      return res.status(404).json({
-        success: false,
-        message: 'İlan bulunamadı'
-      });
-    }
-
-    // İlanı reddet
-    await db.query(`
-      UPDATE cars_listings 
-      SET status = 'rejected', 
-          rejection_reason = $1,
-          updated_at = CURRENT_TIMESTAMP 
-      WHERE id = $2
-    `, [rejection_reason.trim(), id]);
-
-    res.json({
-      success: true,
-      message: 'İlan başarıyla reddedildi',
-      data: {
-        id: id,
-        status: 'rejected',
-        rejection_reason: rejection_reason.trim()
-      }
-    });
-  } catch (error) {
-    console.error('İlan reddedilirken hata:', error);
-    res.status(500).json({
-      success: false,
-      message: 'İlan reddedilemedi',
-      error: error.message
-    });
-  }
-};
-
-// Araba ilanını beklemede durumuna çevir
-const revertCarListingToPending = async (req, res) => {
-  try {
-    const { id } = req.params;
-
-    // İlanın mevcut olup olmadığını kontrol et
-    const existingListing = await db.query('SELECT * FROM cars_listings WHERE id = $1', [id]);
-    if (existingListing.rows.length === 0) {
-      return res.status(404).json({
-        success: false,
-        message: 'İlan bulunamadı'
-      });
-    }
-
-    // İlanı beklemede durumuna çevir
-    await db.query(`
-      UPDATE cars_listings 
-      SET status = 'pending', 
-          rejection_reason = NULL,
-          expires_at = NULL,
-          updated_at = CURRENT_TIMESTAMP 
-      WHERE id = $1
-    `, [id]);
-
-    res.json({
-      success: true,
-      message: 'İlan durumu beklemede olarak değiştirildi',
-      data: {
-        id: id,
-        status: 'pending'
-      }
-    });
-  } catch (error) {
-    console.error('İlan durumu değiştirilirken hata:', error);
-    res.status(500).json({
-      success: false,
-      message: 'İlan durumu değiştirilemedi',
-      error: error.message
-    });
-  }
-};
+// ADMIN FUNCTIONS - MOVED TO adminController.js
+// These functions have been moved to adminController.js for better organization
+// and proper admin authentication/authorization
 
 module.exports = {
   getCarBrands,
+  getPopularCarBrands,
   getAllCarModels,
   getCarModelsByBrand,
   getEnginesByModel,
   getCarModelDetails,
-  getPopularCarBrands,
+  getCarListings,
+  createCarListing,
+  getCarListingDetail,
   searchCars,
   getBodyTypes,
   getFuelTypes,
   getTransmissionTypes,
   getCarProductColors,
-  getCarListings,
-  createCarListing,
-  getCarListingDetail,
-  createCarBrand,
-  updateCarBrand,
-  deleteCarBrand,
   createCarModel,
   updateCarModel,
   deleteCarModel,
-  toggleCarModelStatus,
-  getAllCarListingsForAdmin,
-  approveCarListing,
-  rejectCarListing,
-  revertCarListingToPending,
-  deleteCarListingByAdmin,
-  upload,
-  modelUpload
+  toggleCarModelStatus
 };

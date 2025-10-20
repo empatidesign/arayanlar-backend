@@ -9,6 +9,7 @@ const db = require('./services/database');
 const { generalLimiter } = require('./middleware/rateLimiter');
 const { authenticateSocketToken } = require('./middleware/auth');
 const listingLimitScheduler = require('./services/listingLimitScheduler');
+const expiredListingsScheduler = require('./services/expiredListingsScheduler');
 
 const app = express();
 const server = http.createServer(app);
@@ -263,18 +264,23 @@ const startServer = async () => {
     // Listing limit scheduler'ını başlat
     await listingLimitScheduler.start();
     
+    // Expired listings scheduler'ını başlat
+    await expiredListingsScheduler.start();
+    
     server.listen(PORT, () => {
       console.log(`🚀 Server ${PORT} portunda çalışıyor`);
       console.log(`📊 Health check: http://localhost:${PORT}/health`);
       console.log(`🔐 Auth endpoints: http://localhost:${PORT}/api/auth`);
       console.log(`💬 WebSocket server aktif`);
       console.log(`⏰ Listing limit scheduler aktif`);
+      console.log(`⏰ Expired listings scheduler aktif`);
     });
 
     // Graceful shutdown
     process.on('SIGTERM', () => {
       console.log('SIGTERM signal received: closing HTTP server');
       listingLimitScheduler.stop(); // Scheduler'ı durdur
+      expiredListingsScheduler.stop(); // Expired listings scheduler'ı durdur
       server.close(() => {
         console.log('HTTP server closed');
         process.exit(0);
@@ -284,6 +290,7 @@ const startServer = async () => {
     process.on('SIGINT', () => {
       console.log('SIGINT signal received: closing HTTP server');
       listingLimitScheduler.stop(); // Scheduler'ı durdur
+      expiredListingsScheduler.stop(); // Expired listings scheduler'ı durdur
       server.close(() => {
         console.log('HTTP server closed');
         process.exit(0);

@@ -4,6 +4,12 @@ const { authenticateToken, isAdmin } = require('../middleware/auth');
 const { checkListingScheduleWithAdminBypass } = require('../middleware/listingSchedule');
 const { checkListingLimitWithAdminBypass, incrementListingCount } = require('../middleware/listingLimit');
 const carsController = require('../controllers/carsController');
+const { 
+  getAllCarListingsForAdmin, 
+  approveCarListing, 
+  rejectCarListing, 
+  deleteCarListingByAdmin 
+} = require('../controllers/adminCarController');
 const {
   getCarBrands,
   getAllCarModels,
@@ -11,62 +17,31 @@ const {
   getEnginesByModel,
   getCarModelDetails,
   getPopularCarBrands,
-  searchCars,
-  getBodyTypes,
-  getFuelTypes,
-  getTransmissionTypes,
-  getCarProductColors,
-  getCarListings,
   createCarListing,
   getCarListingDetail,
-  createCarBrand,
-  updateCarBrand,
-  deleteCarBrand,
-  createCarModel,
-  updateCarModel,
-  deleteCarModel,
-  toggleCarModelStatus,
-  getAllCarListingsForAdmin,
-  approveCarListing,
-  rejectCarListing,
-  revertCarListingToPending,
-  deleteCarListingByAdmin,
-  upload,
-  modelUpload
+  getCarProductColors
 } = carsController;
 
-// Araba markalarını listele
+// Araba markalarını listele (public - mobil uygulama için)
 router.get('/brands', getCarBrands);
 
-// Araba markası oluştur
-router.post('/brands', authenticateToken, upload.single('logo'), createCarBrand);
-
-// Araba markası güncelle
-router.put('/brands/:id', authenticateToken, upload.single('logo'), updateCarBrand);
-
-// Araba markası sil
-router.delete('/brands/:id', authenticateToken, deleteCarBrand);
-
-// Popüler araba markalarını getir
+// Popüler araba markalarını getir (public - mobil uygulama için)
 router.get('/brands/popular', getPopularCarBrands);
 
-// Markaya göre araba modellerini listele
+// Markaya göre araba modellerini listele (public - mobil uygulama için)
 router.get('/brands/:brandId/models', getCarModelsByBrand);
 
-// Tüm araba modellerini getir (admin için)
-router.get('/models', authenticateToken, getAllCarModels);
+// Tüm araba modellerini getir (public - mobil uygulama için)
+router.get('/models', getAllCarModels);
 
-// Araba modeli oluştur
-router.post('/models', authenticateToken, modelUpload, createCarModel);
+// Araba modeli detaylarını getir (public - mobil uygulama için)
+router.get('/models/:modelId', getCarModelDetails);
 
-// Araba modeli güncelle
-router.put('/models/:id', authenticateToken, modelUpload, updateCarModel);
+// Modele göre motor hacimlerini getir (public - mobil uygulama için)
+router.get('/models/:modelId/engines', getEnginesByModel);
 
-// Araba modeli sil
-router.delete('/models/:id', authenticateToken, deleteCarModel);
-
-// Araba modeli durumunu değiştir
-router.patch('/models/:id/toggle-status', authenticateToken, toggleCarModelStatus);
+// Araba modeli renk seçeneklerini getir (public - mobil uygulama için)
+router.get('/product-colors/:productId', getCarProductColors);
 
 // Models endpoint'i için brand_id query parametresi ile
 router.get('/', (req, res) => {
@@ -82,41 +57,24 @@ router.get('/', (req, res) => {
   });
 });
 
-// Model detaylarını getir
-router.get('/models/:modelId', getCarModelDetails);
-
-// Modele göre motor hacimlerini getir
-router.get('/models/:modelId/engines', getEnginesByModel);
-
-// Araba arama
-router.get('/search', searchCars);
-
-// Kasa tiplerini getir
-router.get('/body-types', getBodyTypes);
-
-// Yakıt tiplerini getir
-router.get('/fuel-types', getFuelTypes);
-
-// Şanzıman tiplerini getir
-router.get('/transmission-types', getTransmissionTypes);
-
-// Araba model renklerini getir
-router.get('/product-colors/:productId', getCarProductColors);
-
-// Araç ilanlarını getir (mobile API için)
-router.get('/listings', getCarListings);
-
 // Araç ilanı detayını getir (kimlik doğrulaması gerekli - satıcı bilgileri koruması)
 router.get('/:id', authenticateToken, getCarListingDetail);
 
 // Araç ilanı oluştur (kimlik doğrulaması ve zaman kontrolü gerekli)
 router.post('/create-listing', authenticateToken, checkListingScheduleWithAdminBypass, checkListingLimitWithAdminBypass, incrementListingCount, createCarListing);
 
-// Admin için araba ilanları yönetimi
+// Admin için araç ilanlarını listele (kimlik doğrulaması gerekli)
 router.get('/admin/listings', authenticateToken, getAllCarListingsForAdmin);
+
+// Admin için araç ilanını onayla (kimlik doğrulaması gerekli)
 router.patch('/admin/listings/:id/approve', authenticateToken, approveCarListing);
+
+// Admin için araç ilanını reddet (kimlik doğrulaması gerekli)
 router.patch('/admin/listings/:id/reject', authenticateToken, rejectCarListing);
-router.patch('/admin/listings/:id/revert-to-pending', authenticateToken, revertCarListingToPending);
+
+// Admin için araç ilanını sil (kimlik doğrulaması gerekli)
 router.delete('/admin/listings/:id', authenticateToken, deleteCarListingByAdmin);
+
+// Admin araba ilanları yönetimi artık /admin/cars endpoint'lerinde yapılıyor
 
 module.exports = router;
