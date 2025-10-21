@@ -18,7 +18,7 @@ class ExpiredListingsScheduler {
 
     try {
       // Her 10 dakikada bir süresi dolan ilanları kontrol et
-      this.expiredTask = cron.schedule('*/10 * * * *', async () => {
+      this.expiredTask = cron.schedule('*/5 * * * *', async () => {
         try {
           console.log('Checking for expired listings...');
           await this.updateExpiredListings();

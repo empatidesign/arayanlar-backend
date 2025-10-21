@@ -23,4 +23,7 @@ router.put('/social-media', authenticateToken, authController.updateSocialMedia)
 
 router.get('/user/:userId/profile', authenticateToken, authController.getUserProfile);
 
+// Ban durumu kontrol endpoint'i
+router.get('/check-ban-status', authenticateToken, authController.checkBanStatus);
+
 module.exports = router;

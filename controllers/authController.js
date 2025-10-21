@@ -145,6 +145,34 @@ class AuthController {
         });
       }
 
+      // Ban kontrolü
+      const db = require('../services/database');
+      const banCheck = await db.query(`
+        SELECT ub.*, u.name as banned_by_name
+        FROM user_bans ub
+        LEFT JOIN users u ON ub.banned_by = u.id
+        WHERE ub.user_id = $1 
+          AND ub.is_active = TRUE 
+          AND (ub.banned_until IS NULL OR ub.banned_until > NOW())
+        ORDER BY ub.created_at DESC
+        LIMIT 1
+      `, [user.id]);
+
+      if (banCheck.rows.length > 0) {
+        const ban = banCheck.rows[0];
+        return res.status(403).json({
+          success: false,
+          message: 'Hesabınız banlanmıştır',
+          banInfo: {
+            reason: ban.reason,
+            bannedUntil: ban.banned_until,
+            bannedBy: ban.banned_by_name,
+            createdAt: ban.created_at,
+            isPermanent: ban.banned_until === null
+          }
+        });
+      }
+
       const token = userService.generateToken(user);
 
       res.json({
@@ -167,6 +195,55 @@ class AuthController {
       res.status(500).json({
         success: false,
         message: 'Giriş sırasında bir hata oluştu'
+      });
+    }
+  }
+
+  // Kullanıcının ban durumunu kontrol et (uygulama içinde periyodik kontrol için)
+  async checkBanStatus(req, res) {
+    try {
+      const userId = req.user.id;
+
+      // Ban kontrolü
+      const db = require('../services/database');
+      const banCheck = await db.query(`
+        SELECT ub.*, u.name as banned_by_name
+        FROM user_bans ub
+        LEFT JOIN users u ON ub.banned_by = u.id
+        WHERE ub.user_id = $1 
+          AND ub.is_active = TRUE 
+          AND (ub.banned_until IS NULL OR ub.banned_until > NOW())
+        ORDER BY ub.created_at DESC
+        LIMIT 1
+      `, [userId]);
+
+      if (banCheck.rows.length > 0) {
+        const ban = banCheck.rows[0];
+        return res.status(403).json({
+          success: false,
+          message: 'Hesabınız banlanmıştır',
+          isBanned: true,
+          banInfo: {
+            reason: ban.reason,
+            bannedUntil: ban.banned_until,
+            bannedBy: ban.banned_by_name,
+            createdAt: ban.created_at,
+            isPermanent: ban.banned_until === null
+          }
+        });
+      }
+
+      res.json({
+        success: true,
+        isBanned: false,
+        message: 'Kullanıcı aktif'
+      });
+
+    } catch (error) {
+      console.error('Ban status check error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Ban durumu kontrol edilirken bir hata oluştu'
       });
     }
   }

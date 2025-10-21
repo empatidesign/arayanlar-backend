@@ -72,33 +72,40 @@ const getAllUsers = async (req, res) => {
 
     // Arama filtresi
     if (search) {
-      whereClause += ` AND (name ILIKE $${paramCount} OR surname ILIKE $${paramCount} OR email ILIKE $${paramCount} OR phone ILIKE $${paramCount})`;
+      whereClause += ` AND (u.name ILIKE $${paramCount} OR u.surname ILIKE $${paramCount} OR u.email ILIKE $${paramCount} OR u.phone ILIKE $${paramCount})`;
       queryParams.push(`%${search}%`);
       paramCount++;
     }
 
     // Role filtresi
     if (role) {
-      whereClause += ` AND role = $${paramCount}`;
+      whereClause += ` AND u.role = $${paramCount}`;
       queryParams.push(role);
       paramCount++;
     }
 
     // Toplam kullanıcı sayısı
-    const countQuery = `SELECT COUNT(*) FROM users ${whereClause}`;
+    const countQuery = `SELECT COUNT(*) FROM users u ${whereClause}`;
     const countResult = await db.query(countQuery, queryParams);
     const totalUsers = parseInt(countResult.rows[0].count);
 
     // Kullanıcıları getir
     const usersQuery = `
       SELECT 
-        id, name, surname, email, phone, role, is_verified,
-        subscription_end_date, birthday, gender, city, profile_image_url,
-        about, instagram_url, facebook_url, whatsapp_url, linkedin_url,
-        created_at, updated_at
-      FROM users 
+        u.id, u.name, u.surname, u.email, u.phone, u.role, u.is_verified,
+        u.subscription_end_date, u.birthday, u.gender, u.city, u.profile_image_url,
+        u.about, u.instagram_url, u.facebook_url, u.whatsapp_url, u.linkedin_url,
+        u.created_at, u.updated_at,
+        CASE 
+          WHEN ub.id IS NOT NULL THEN true 
+          ELSE false 
+        END as is_banned
+      FROM users u
+      LEFT JOIN user_bans ub ON u.id = ub.user_id 
+        AND ub.is_active = TRUE 
+        AND (ub.banned_until IS NULL OR ub.banned_until > NOW())
       ${whereClause}
-      ORDER BY created_at DESC
+      ORDER BY u.created_at DESC
       LIMIT $${paramCount} OFFSET $${paramCount + 1}
     `;
     

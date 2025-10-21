@@ -71,6 +71,23 @@ router.delete('/users/:id', deleteUser);
 router.post('/users/:id/upload-image', profileImageUpload.single('image'), uploadProfileImage);
 
 // Dashboard endpoint'leri adminDashboardController'dan import ediliyor
+// Şikayet yönetimi fonksiyonları adminReportsController'dan import ediliyor
+const {
+  getReports,
+  getReportById,
+  getReportChatMessages,
+  updateReportStatus,
+  deleteReport
+} = require('../controllers/adminControllers/adminReportsController');
+
+// Ban yönetimi fonksiyonları adminBanController'dan import ediliyor
+const {
+  banUser,
+  checkUserBanStatus,
+  unbanUser,
+  getUserBanHistory
+} = require('../controllers/adminControllers/adminBanController');
+
 const { getDashboardStats, getRecentMessages } = require('../controllers/adminControllers/adminDashboardController');
 
 // Dashboard endpoint'leri
@@ -114,5 +131,18 @@ router.put('/car-listings/:id/reject', rejectCarListing);
 router.put('/car-listings/:id/revert', revertCarListingToPending);
 router.put('/car-listings/:id/extend-duration', extendCarListingDuration);
 router.delete('/car-listings/:id', deleteCarListingByAdmin);
+
+// Reports endpoints
+router.get('/reports', getReports);
+router.get('/reports/:id', getReportById);
+router.get('/reports/:id/chat-messages', getReportChatMessages);
+router.put('/reports/:id/status', updateReportStatus);
+router.delete('/reports/:id', deleteReport);
+
+// Ban management endpoints
+router.post('/ban-user', banUser);
+router.get('/check-ban-status/:userId', checkUserBanStatus);
+router.post('/unban-user', unbanUser);
+router.get('/ban-history/:userId', getUserBanHistory);
 
 module.exports = router;

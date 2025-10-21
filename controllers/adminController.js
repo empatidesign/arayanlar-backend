@@ -43,12 +43,7 @@ const requireAdmin = async (req, res, next) => {
 
 
 
-// Geçici olarak tüm kullanıcıları admin olarak kabul et (development için)
-// Production'da yukarıdaki kodu kullan
-const requireAdminDev = async (req, res, next) => {
-  console.log('⚠️ DEV MODE: Tüm kullanıcılar admin olarak kabul ediliyor');
-  next();
-};
+
 
 // Kullanıcıları listeleme
 // Kullanıcı yönetimi fonksiyonları adminUserController.js'e taşındı
@@ -108,7 +103,7 @@ const requireAdminDev = async (req, res, next) => {
 
 
 module.exports = {
-  requireAdmin: process.env.NODE_ENV === 'production' ? requireAdmin : requireAdminDev,
+  requireAdmin,
   // Slider yönetimi fonksiyonları adminSliderController.js dosyasına taşındı
   // Araba yönetimi fonksiyonları adminCarController.js dosyasına taşındı
   // Kullanıcı yönetimi fonksiyonları adminUserController.js dosyasına taşındı

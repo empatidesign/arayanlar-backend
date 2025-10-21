@@ -10,6 +10,7 @@ const { generalLimiter } = require('./middleware/rateLimiter');
 const { authenticateSocketToken } = require('./middleware/auth');
 const listingLimitScheduler = require('./services/listingLimitScheduler');
 const expiredListingsScheduler = require('./services/expiredListingsScheduler');
+const banScheduler = require('./services/banScheduler');
 
 const app = express();
 const server = http.createServer(app);
@@ -54,6 +55,7 @@ app.use('/api/user-listings', require('./routes/userListings'));
 app.use('/api/districts', require('./routes/districts'));
 app.use('/api/listing-schedule', require('./routes/listingSchedule'));
 app.use('/api/listing-limits', require('./routes/listingLimits'));
+app.use('/api/reports', require('./routes/reports'));
 
 // Products route'u watches route'una yönlendir
 app.use('/api/products', require('./routes/watches'));
@@ -267,6 +269,9 @@ const startServer = async () => {
     // Expired listings scheduler'ını başlat
     await expiredListingsScheduler.start();
     
+    // Ban scheduler'ını başlat
+    await banScheduler.start();
+    
     server.listen(PORT, () => {
       console.log(`🚀 Server ${PORT} portunda çalışıyor`);
       console.log(`📊 Health check: http://localhost:${PORT}/health`);
@@ -274,6 +279,7 @@ const startServer = async () => {
       console.log(`💬 WebSocket server aktif`);
       console.log(`⏰ Listing limit scheduler aktif`);
       console.log(`⏰ Expired listings scheduler aktif`);
+      console.log(`⏰ Ban scheduler aktif`);
     });
 
     // Graceful shutdown
@@ -281,6 +287,7 @@ const startServer = async () => {
       console.log('SIGTERM signal received: closing HTTP server');
       listingLimitScheduler.stop(); // Scheduler'ı durdur
       expiredListingsScheduler.stop(); // Expired listings scheduler'ı durdur
+      banScheduler.stop(); // Ban scheduler'ı durdur
       server.close(() => {
         console.log('HTTP server closed');
         process.exit(0);
@@ -291,6 +298,7 @@ const startServer = async () => {
       console.log('SIGINT signal received: closing HTTP server');
       listingLimitScheduler.stop(); // Scheduler'ı durdur
       expiredListingsScheduler.stop(); // Expired listings scheduler'ı durdur
+      banScheduler.stop(); // Ban scheduler'ı durdur
       server.close(() => {
         console.log('HTTP server closed');
         process.exit(0);
