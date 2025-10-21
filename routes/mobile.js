@@ -16,12 +16,11 @@ const { getCarListings, getCarBrands } = require('../controllers/carsController'
 
 // Housing controller'dan mobile fonksiyonları import et
 const { 
-  getHousingListings
+  getHousingListings,
+  getHousingListingById
 } = require('../controllers/housingController');
 
-const { 
-  getHousingListingById 
-} = require('../controllers/adminControllers/adminHouseController');
+
 
 // User listings controller'dan süre uzatma fonksiyonu import et
 const { extendListingDuration } = require('../controllers/userListingsController');

@@ -182,11 +182,43 @@ const getHousingListings = async (req, res) => {
   }
 };
 
-// Konut ilanı detayını getir
-// Bu fonksiyon adminHouseController.js'e taşındı
-// const getHousingListingById = async (req, res) => {
-//   // Kod adminHouseController.js'e taşındı
-// };
+// Konut ilanı detayını getir (Normal kullanıcılar için)
+const getHousingListingById = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const query = `
+      SELECT hl.*, u.name as user_name, u.surname as user_surname, u.phone as user_phone, u.email as user_email, u.profile_image_url,
+             d.image as district_image
+      FROM housing_listings hl
+      LEFT JOIN users u ON hl.user_id = u.id
+      LEFT JOIN districts d ON LOWER(d.name) = LOWER(hl.district) AND d.is_active = true
+      WHERE hl.id = $1 AND hl.status = 'approved'
+    `;
+
+    const result = await db.query(query, [id]);
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'Konut ilanı bulunamadı'
+      });
+    }
+
+    res.json({
+      success: true,
+      data: result.rows[0]
+    });
+
+  } catch (error) {
+    console.error('Konut ilanı getirilirken hata:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Konut ilanı getirilemedi',
+      error: error.message
+    });
+  }
+};
 
 // Konut ilanını güncelle
 // Bu fonksiyon adminHouseController.js'e taşındı
@@ -252,6 +284,6 @@ const deleteHousingListing = async (req, res) => {
 module.exports = {
   createHousingListing,
   getHousingListings,
+  getHousingListingById,
   deleteHousingListing
-  // getHousingListingById ve updateHousingListing adminHouseController.js'e taşındı
 };
