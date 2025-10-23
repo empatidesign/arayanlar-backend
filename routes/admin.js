@@ -90,7 +90,15 @@ const {
 
 const { getDashboardStats, getRecentMessages } = require('../controllers/adminControllers/adminDashboardController');
 
-// Dashboard endpoint'leri
+// Version management fonksiyonları adminVersionController'dan import ediliyor
+const {
+  getAllVersions,
+  createVersion,
+  updateVersion,
+  deleteVersion
+} = require('../controllers/adminControllers/adminVersionController');
+
+// Dashboard routes
 router.get('/dashboard/stats', getDashboardStats);
 router.get('/dashboard/messages', getRecentMessages);
 
@@ -144,5 +152,11 @@ router.post('/ban-user', banUser);
 router.get('/check-ban-status/:userId', checkUserBanStatus);
 router.post('/unban-user', unbanUser);
 router.get('/ban-history/:userId', getUserBanHistory);
+
+// Version management routes
+router.get('/versions', getAllVersions);
+router.post('/versions', createVersion);
+router.put('/versions/:id', updateVersion);
+router.delete('/versions/:id', deleteVersion);
 
 module.exports = router;

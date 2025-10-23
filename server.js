@@ -63,6 +63,7 @@ app.use('/api/districts', require('./routes/districts'));
 app.use('/api/listing-schedule', require('./routes/listingSchedule'));
 app.use('/api/listing-limits', require('./routes/listingLimits'));
 app.use('/api/reports', require('./routes/reports'));
+app.use('/api/version', require('./routes/version'));
 
 // Products route'u watches route'una yönlendir
 app.use('/api/products', require('./routes/watches'));
