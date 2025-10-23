@@ -9,7 +9,7 @@ const {
   approveCarListing, 
   rejectCarListing, 
   deleteCarListingByAdmin 
-} = require('../controllers/adminCarController');
+} = require('../controllers/adminControllers/adminCarController');
 const {
   getCarBrands,
   getAllCarModels,

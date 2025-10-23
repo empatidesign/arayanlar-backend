@@ -1,4 +1,5 @@
 const db = require('../../services/database');
+const { decryptText, isEncrypted, encryptText } = require('../../utils/messageCrypto');
 
 // Admin - Şikayet gönder
 const submitReport = async (req, res) => {
@@ -244,7 +245,7 @@ const getReportChatMessages = async (req, res) => {
 
     // Önce şikayetin var olduğunu ve kullanıcı ID'lerini kontrol et
     const reportQuery = `
-      SELECT reporter_user_id, reported_user_id 
+      SELECT reporter_user_id, reported_user_id, created_at 
       FROM reports 
       WHERE id = $1
     `;
@@ -258,12 +259,13 @@ const getReportChatMessages = async (req, res) => {
       });
     }
 
-    const { reporter_user_id, reported_user_id } = reportResult.rows[0];
+    const { reporter_user_id, reported_user_id, created_at: report_created_at } = reportResult.rows[0];
 
-    // İki kullanıcı arasındaki sohbet mesajlarını getir (son 50 mesaj)
+    // İki kullanıcı arasındaki sohbet mesajlarını getir (son 50 mesaj) — şikayet zamanından SONRAKİLER dahil edilmez
     const messagesQuery = `
       SELECT 
         m.id,
+        m.conversation_id,
         m.sender_id,
         m.message,
         m.message_type,
@@ -275,17 +277,47 @@ const getReportChatMessages = async (req, res) => {
       JOIN conversation_participants cp1 ON c.id = cp1.conversation_id AND cp1.user_id != m.sender_id
       JOIN conversation_participants cp2 ON c.id = cp2.conversation_id AND cp2.user_id = m.sender_id
       WHERE 
-        (cp1.user_id = $1 AND cp2.user_id = $2) OR 
-        (cp1.user_id = $2 AND cp2.user_id = $1)
+        ((cp1.user_id = $1 AND cp2.user_id = $2) OR 
+        (cp1.user_id = $2 AND cp2.user_id = $1))
+        AND m.created_at <= $3
       ORDER BY m.created_at DESC
       LIMIT 50
     `;
 
-    const messagesResult = await db.query(messagesQuery, [reporter_user_id, reported_user_id]);
+    const messagesResult = await db.query(messagesQuery, [reporter_user_id, reported_user_id, report_created_at]);
+
+    const data = messagesResult.rows.map((row) => {
+      const plainMessage = row.message_type === 'text'
+        ? decryptText(row.message)
+        : (isEncrypted(row.message) ? decryptText(row.message) : row.message);
+      const caption = row.caption ? decryptText(row.caption) : null;
+
+      let image_token = null;
+      if (row.message_type === 'image') {
+        try {
+          const payload = JSON.stringify({
+            p: plainMessage,
+            mid: row.id,
+            cid: row.conversation_id,
+            exp: Date.now() + 10 * 60 * 1000 // 10 dakika
+          });
+          image_token = encryptText(payload);
+        } catch (e) {
+          // token oluşturulamazsa sessiz geç
+        }
+      }
+
+      return {
+        ...row,
+        message: plainMessage,
+        caption,
+        ...(image_token ? { image_token } : {})
+      };
+    });
 
     res.json({
       success: true,
-      data: messagesResult.rows
+      data
     });
 
   } catch (error) {
@@ -300,11 +332,12 @@ const getReportChatMessages = async (req, res) => {
   }
 };
 
+
 // Admin - Şikayet durumu güncelleme
 const updateReportStatus = async (req, res) => {
   try {
     const { id } = req.params;
-    const { status, admin_notes } = req.body;
+    const { status, admin_notes, validity, action_taken, invalid_reason } = req.body;
 
     // Geçerli durumları kontrol et
     const validStatuses = ['pending', 'investigating', 'resolved', 'dismissed'];
@@ -317,12 +350,19 @@ const updateReportStatus = async (req, res) => {
 
     const query = `
       UPDATE reports 
-      SET status = $1, admin_notes = $2, updated_at = NOW()
-      WHERE id = $3
+      SET status = $1, admin_notes = $2, validity = $3, action_taken = $4, invalid_reason = $5, updated_at = NOW()
+      WHERE id = $6
       RETURNING id
     `;
 
-    const result = await db.query(query, [status, admin_notes || null, id]);
+    const result = await db.query(query, [
+      status, 
+      admin_notes || null, 
+      validity || null, 
+      action_taken || null, 
+      invalid_reason || null, 
+      id
+    ]);
 
     if (result.rows.length === 0) {
       return res.status(404).json({

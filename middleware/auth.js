@@ -108,8 +108,69 @@ const optionalAuth = async (req, res, next) => {
   }
 };
 
+// Yeni: Header yoksa query parametresinden token doğrula (örn. ?token=...)
+const authenticateTokenFlexible = async (req, res, next) => {
+  try {
+    let token = null;
+    const authHeader = req.headers['authorization'];
+    if (authHeader) {
+      token = authHeader.split(' ')[1];
+    } else if (req.query && (req.query.token || req.query.access_token)) {
+      token = req.query.token || req.query.access_token;
+    }
+
+    if (!token) {
+      return res.status(401).json({
+        success: false,
+        message: 'Erişim token\'ı gerekli'
+      });
+    }
+
+    const decoded = userService.verifyToken(token);
+    const user = await userService.getUserById(decoded.id);
+    if (!user) {
+      return res.status(401).json({
+        success: false,
+        message: 'Geçersiz token'
+      });
+    }
+
+    req.user = {
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      surname: user.surname,
+      role: user.role
+    };
+
+    next();
+  } catch (error) {
+    console.error('Auth flexible middleware error:', error);
+    
+    if (error.name === 'TokenExpiredError') {
+      return res.status(401).json({
+        success: false,
+        message: 'Token süresi dolmuş'
+      });
+    }
+
+    if (error.name === 'JsonWebTokenError') {
+      return res.status(401).json({
+        success: false,
+        message: 'Geçersiz token'
+      });
+    }
+
+    return res.status(500).json({
+      success: false,
+      message: 'Token doğrulama hatası'
+    });
+  }
+};
+
 module.exports = {
   authenticateToken,
   requireAdmin,
-  optionalAuth
+  optionalAuth,
+  authenticateTokenFlexible
 };

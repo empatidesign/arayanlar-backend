@@ -11,6 +11,7 @@ const { authenticateSocketToken } = require('./middleware/auth');
 const listingLimitScheduler = require('./services/listingLimitScheduler');
 const expiredListingsScheduler = require('./services/expiredListingsScheduler');
 const banScheduler = require('./services/banScheduler');
+const { encryptText, decryptText } = require('./utils/messageCrypto');
 
 const app = express();
 const server = http.createServer(app);
@@ -37,6 +38,12 @@ app.use(generalLimiter);
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 
+app.use('/uploads/chat', (req, res) => {
+  res.status(403).json({
+    success: false,
+    message: 'Chat resimleri için güvenli erişim: /api/chat/image/:filename'
+  });
+});
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 app.use('/api/auth', require('./routes/auth'));
@@ -149,9 +156,10 @@ io.on('connection', (socket) => {
       const isBlockedMessage = isBlockedCheck.rows.length > 0;
       
       // Mesajı kaydet (WebSocket'te caption yok, sadece text mesajlar)
+      const storedMessage = messageType === 'text' ? encryptText(message) : message;
       const result = await db.query(
         'INSERT INTO messages (conversation_id, sender_id, message, message_type, is_blocked_message) VALUES ($1, $2, $3, $4, $5) RETURNING *',
-        [conversationId, socket.userId, message, messageType, isBlockedMessage]
+        [conversationId, socket.userId, storedMessage, messageType, isBlockedMessage]
       );
       
       const savedMessage = result.rows[0];
@@ -168,7 +176,7 @@ io.on('connection', (socket) => {
         conversation_id: savedMessage.conversation_id,
         sender_id: savedMessage.sender_id,
         receiver_id: receiverId,
-        message: savedMessage.message,
+        message: messageType === 'text' ? decryptText(savedMessage.message) : savedMessage.message,
         message_type: savedMessage.message_type,
         created_at: savedMessage.created_at
       };

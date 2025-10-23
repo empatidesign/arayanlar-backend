@@ -560,11 +560,11 @@ const extendHousingListingDuration = async (req, res) => {
 
     const listing = checkResult.rows[0];
 
-    // Sadece süresi dolmuş ilanların süresini uzatabilir
-    if (listing.status !== 'expired') {
+    // Sadece süresi dolmuş veya onaylanmış ilanların süresini uzatabilir
+    if (listing.status !== 'expired' && listing.status !== 'approved') {
       return res.status(400).json({
         success: false,
-        message: 'Sadece süresi dolmuş ilanların süresi uzatılabilir'
+        message: 'Sadece süresi dolmuş veya onaylanmış ilanların süresi uzatılabilir'
       });
     }
 

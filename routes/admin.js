@@ -50,7 +50,7 @@ const {
   revertCarListingToPending,
   deleteCarListingByAdmin,
   extendCarListingDuration
-} = require('../controllers/adminCarController');
+} = require('../controllers/adminControllers/adminCarController');
 
 // Diğer admin fonksiyonları adminController'dan import ediliyor
 const {
