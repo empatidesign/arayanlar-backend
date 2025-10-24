@@ -117,20 +117,18 @@ class EmailService {
             <p>Arayanvar hesabınızın şifresini sıfırlamak için bir talepte bulundunuz.</p>
             <p>Şifrenizi sıfırlamak için aşağıdaki butona tıklayın:</p>
             <div style="text-align: center; margin: 30px 0;">
-              <a href="${webFallbackUrl}" 
+              <a href="${deepLinkUrl}" 
                  style="background-color: #007AFF; color: white; padding: 15px 30px; 
                         text-decoration: none; border-radius: 5px; display: inline-block;">
                 Uygulamada Şifremi Sıfırla
               </a>
             </div>
             <p style="text-align: center; margin: 20px 0;">
-              <small>Eğer yukarıdaki buton çalışmıyorsa, 
-              <a href="${webFallbackUrl}" style="color: #007AFF;">buraya tıklayın</a>
-              </small>
+              <small>Eğer yukarıdaki buton çalışmıyorsa, aşağıdaki linki kopyalayıp tarayıcınıza yapıştırın:</small><br>
+              <small style="word-break: break-all;">${deepLinkUrl}</small>
             </p>
-            <p>Bu link 15 dakika süreyle geçerlidir.</p>
-            <p>Eğer bu işlemi siz yapmadıysanız, bu e-postayı görmezden gelebilirsiniz.</p>
-            <p><strong>Güvenlik İpucu:</strong> Şifrenizi kimseyle paylaşmayın ve güçlü bir şifre seçin.</p>
+            <p><strong>Önemli:</strong> Bu link 15 dakika geçerlidir.</p>
+            <p>Eğer bu talebi siz yapmadıysanız, bu e-postayı görmezden gelebilirsiniz.</p>
             <br>
             <p>Saygılarımızla,<br>Arayanvar Ekibi</p>
           </div>
