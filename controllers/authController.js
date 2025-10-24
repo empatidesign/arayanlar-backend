@@ -527,7 +527,7 @@ class AuthController {
       
       if (instagram_url !== undefined) socialMediaData.instagram_url = instagram_url;
       if (facebook_url !== undefined) socialMediaData.facebook_url = facebook_url;
-      if (whatsappUrl !== undefined) socialMediaData.whatsappUrl = whatsappUrl;
+      if (whatsappUrl !== undefined) socialMediaData.whatsappUrl = whatsapp_url;
       if (linkedin_url !== undefined) socialMediaData.linkedin_url = linkedin_url;
 
       if (Object.keys(socialMediaData).length === 0) {
@@ -555,17 +555,17 @@ class AuthController {
 
   async getUserProfile(req, res) {
     try {
-      const { userId } = req.params;
+      const userId = req.params.userId;
       
-      if (!userId || isNaN(userId)) {
+      if (!userId) {
         return res.status(400).json({
           success: false,
-          message: 'Geçerli bir kullanıcı ID\'si gerekli'
+          message: 'Kullanıcı ID gerekli'
         });
       }
 
-      const user = await userService.getUserById(parseInt(userId));
-
+      const user = await userService.getUserById(userId);
+      
       if (!user) {
         return res.status(404).json({
           success: false,
@@ -573,30 +573,164 @@ class AuthController {
         });
       }
 
-      // Sadece genel profil bilgilerini döndür (hassas bilgileri çıkar)
       res.json({
         success: true,
-        data: {
-          user: {
-            id: user.id,
-            name: user.name,
-            surname: user.surname,
-            profileImageUrl: user.profile_image_url,
-            about: user.about,
-            instagramUrl: user.instagram_url,
-            facebookUrl: user.facebook_url,
-            whatsappUrl: user.whatsapp_url,
-            linkedinUrl: user.linkedin_url,
-            createdAt: user.created_at
-          }
-        }
+        user: user
       });
-
     } catch (error) {
-      console.error('Get user profile error:', error);
+      console.error('Kullanıcı profili getirme hatası:', error);
       res.status(500).json({
         success: false,
-        message: 'Kullanıcı profili alınırken hata oluştu'
+        message: 'Sunucu hatası'
+      });
+    }
+  }
+
+  // Şifre sıfırlama talebi
+  async forgotPassword(req, res) {
+    try {
+      const { email } = req.body;
+
+      if (!email) {
+        return res.status(400).json({
+          success: false,
+          message: 'E-posta adresi gerekli'
+        });
+      }
+
+      // E-posta formatını kontrol et
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(email)) {
+        return res.status(400).json({
+          success: false,
+          message: 'Geçerli bir e-posta adresi girin'
+        });
+      }
+
+      try {
+        const { resetToken, user } = await userService.createPasswordResetToken(email);
+        
+        // E-posta gönder
+        const emailResult = await emailService.sendPasswordResetEmail(email, resetToken);
+        
+        if (!emailResult.success) {
+          return res.status(500).json({
+            success: false,
+            message: 'E-posta gönderilirken hata oluştu'
+          });
+        }
+
+        res.json({
+          success: true,
+          message: 'Şifre sıfırlama bağlantısı e-posta adresinize gönderildi'
+        });
+      } catch (error) {
+        if (error.message === 'Bu e-posta adresi ile kayıtlı kullanıcı bulunamadı') {
+          // Güvenlik için aynı mesajı döndür
+          res.json({
+            success: true,
+            message: 'Şifre sıfırlama bağlantısı e-posta adresinize gönderildi'
+          });
+        } else {
+          throw error;
+        }
+      }
+    } catch (error) {
+      console.error('Şifre sıfırlama talebi hatası:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Sunucu hatası'
+      });
+    }
+  }
+
+  // Şifre sıfırlama token'ını doğrula
+  async verifyResetToken(req, res) {
+    try {
+      const { token } = req.body;
+
+      if (!token) {
+        return res.status(400).json({
+          success: false,
+          message: 'Token gerekli'
+        });
+      }
+
+      const tokenData = await userService.verifyPasswordResetToken(token);
+      
+      if (!tokenData) {
+        return res.status(400).json({
+          success: false,
+          message: 'Geçersiz veya süresi dolmuş token'
+        });
+      }
+
+      res.json({
+        success: true,
+        message: 'Token geçerli',
+        email: tokenData.email
+      });
+    } catch (error) {
+      console.error('Token doğrulama hatası:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Sunucu hatası'
+      });
+    }
+  }
+
+  // Şifre sıfırlama
+  async resetPassword(req, res) {
+    try {
+      const { token, newPassword, confirmPassword } = req.body;
+
+      if (!token || !newPassword || !confirmPassword) {
+        return res.status(400).json({
+          success: false,
+          message: 'Tüm alanlar zorunludur'
+        });
+      }
+
+      if (newPassword !== confirmPassword) {
+        return res.status(400).json({
+          success: false,
+          message: 'Şifreler eşleşmiyor'
+        });
+      }
+
+      if (newPassword.length < 6) {
+        return res.status(400).json({
+          success: false,
+          message: 'Şifre en az 6 karakter olmalıdır'
+        });
+      }
+
+      const result = await userService.resetPassword(token, newPassword);
+      
+      res.json({
+        success: true,
+        message: 'Şifreniz başarıyla sıfırlandı'
+      });
+    } catch (error) {
+      console.error('Şifre sıfırlama hatası:', error);
+      
+      if (error.message === 'Geçersiz veya süresi dolmuş token') {
+        return res.status(400).json({
+          success: false,
+          message: 'Geçersiz veya süresi dolmuş token'
+        });
+      }
+
+      if (error.message === 'Şifre en az 6 karakter olmalıdır') {
+        return res.status(400).json({
+          success: false,
+          message: 'Şifre en az 6 karakter olmalıdır'
+        });
+      }
+
+      res.status(500).json({
+        success: false,
+        message: 'Sunucu hatası'
       });
     }
   }

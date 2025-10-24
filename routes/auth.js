@@ -19,9 +19,16 @@ router.put('/profile', authenticateToken, authController.updateProfile);
 
 router.put('/profile/image', authenticateToken, upload.single('profileImage'), authController.updateProfileImage);
 
-router.put('/social-media', authenticateToken, authController.updateSocialMedia);
+// Kullanıcı profili güncelleme (sosyal medya)
+router.put('/update-social-media', authenticateToken, authController.updateSocialMedia);
 
-router.get('/user/:userId/profile', authenticateToken, authController.getUserProfile);
+// Kullanıcı profili getirme (public)
+router.get('/user/:userId', authController.getUserProfile);
+
+// Şifre sıfırlama endpoint'leri
+router.post('/forgot-password', authController.forgotPassword);
+router.post('/verify-reset-token', authController.verifyResetToken);
+router.post('/reset-password', authController.resetPassword);
 
 // Ban durumu kontrol endpoint'i
 router.get('/check-ban-status', authenticateToken, authController.checkBanStatus);

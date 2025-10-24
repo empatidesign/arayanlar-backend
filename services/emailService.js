@@ -97,6 +97,53 @@ class EmailService {
     this.verificationCodes.delete(email);
     this.verifiedEmails.delete(email);
   }
+
+  // Şifre sıfırlama için token ve email gönderme
+  async sendPasswordResetEmail(email, resetToken) {
+    try {
+      // Deep link URL'i oluştur (mobil uygulama için)
+      const deepLinkUrl = `arayanvar://reset-password?token=${resetToken}`;
+      // Web fallback URL'i (eğer deep link çalışmazsa)
+      const webFallbackUrl = `${process.env.CORS_ORIGIN || 'http://localhost:3000'}/reset-password?token=${resetToken}`;
+      
+      const mailOptions = {
+        from: process.env.EMAIL_USER,
+        to: email,
+        subject: 'Arayanvar - Şifre Sıfırlama',
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <h2 style="color: #333;">Şifre Sıfırlama</h2>
+            <p>Merhaba,</p>
+            <p>Arayanvar hesabınızın şifresini sıfırlamak için bir talepte bulundunuz.</p>
+            <p>Şifrenizi sıfırlamak için aşağıdaki butona tıklayın:</p>
+            <div style="text-align: center; margin: 30px 0;">
+              <a href="${webFallbackUrl}" 
+                 style="background-color: #007AFF; color: white; padding: 15px 30px; 
+                        text-decoration: none; border-radius: 5px; display: inline-block;">
+                Uygulamada Şifremi Sıfırla
+              </a>
+            </div>
+            <p style="text-align: center; margin: 20px 0;">
+              <small>Eğer yukarıdaki buton çalışmıyorsa, 
+              <a href="${webFallbackUrl}" style="color: #007AFF;">buraya tıklayın</a>
+              </small>
+            </p>
+            <p>Bu link 15 dakika süreyle geçerlidir.</p>
+            <p>Eğer bu işlemi siz yapmadıysanız, bu e-postayı görmezden gelebilirsiniz.</p>
+            <p><strong>Güvenlik İpucu:</strong> Şifrenizi kimseyle paylaşmayın ve güçlü bir şifre seçin.</p>
+            <br>
+            <p>Saygılarımızla,<br>Arayanvar Ekibi</p>
+          </div>
+        `
+      };
+
+      await this.transporter.sendMail(mailOptions);
+      return { success: true, message: 'Şifre sıfırlama e-postası gönderildi' };
+    } catch (error) {
+      console.error('Password reset email send error:', error);
+      return { success: false, message: 'E-posta gönderilirken hata oluştu' };
+    }
+  }
 }
 
 module.exports = new EmailService();
