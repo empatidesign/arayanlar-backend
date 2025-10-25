@@ -371,6 +371,35 @@ const extendListingDuration = async (req, res) => {
 
     const updatedListing = result.rows[0];
 
+    // İşlem kaydını transactions tablosuna ekle
+    try {
+      const transactionQuery = `
+        INSERT INTO transactions (
+          user_id, listing_id, listing_title, listing_type, transaction_type,
+          amount, extension_days, old_expiry_date, new_expiry_date, status
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+        RETURNING id
+      `;
+      
+      const transactionValues = [
+        userId,
+        listingId,
+        updatedListing.title,
+        listingType,
+        'extension',
+        50.00, // Uzatma ücreti
+        7, // Uzatma gün sayısı
+        listing.expires_at, // Eski bitiş tarihi
+        updatedListing.expires_at, // Yeni bitiş tarihi
+        'completed'
+      ];
+
+      await db.query(transactionQuery, transactionValues);
+    } catch (transactionError) {
+      console.error('İşlem kaydı oluşturulurken hata:', transactionError);
+      // İşlem kaydı başarısız olsa bile uzatma işlemi başarılı sayılır
+    }
+
     res.json({
       success: true,
       message: 'İlan süresi başarıyla 7 gün uzatıldı',

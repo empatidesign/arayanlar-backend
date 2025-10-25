@@ -27,8 +27,8 @@ router.get('/user/:userId', authController.getUserProfile);
 
 // Şifre sıfırlama endpoint'leri
 router.post('/forgot-password', authController.forgotPassword);
-router.post('/verify-reset-token', authController.verifyResetToken);
-router.post('/reset-password', authController.resetPassword);
+router.post('/verify-reset-code', authController.verifyResetCode);
+router.post('/reset-password-with-code', authController.resetPasswordWithCode);
 
 // Ban durumu kontrol endpoint'i
 router.get('/check-ban-status', authenticateToken, authController.checkBanStatus);

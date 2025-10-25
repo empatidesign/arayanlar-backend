@@ -607,11 +607,22 @@ class AuthController {
         });
       }
 
+      // Önce kullanıcının var olup olmadığını kontrol et
+      const user = await userService.findUserByEmail(email);
+      
+      if (!user) {
+        // Kayıtlı olmayan e-posta için açık hata mesajı döndür
+        return res.status(404).json({
+          success: false,
+          message: 'Bu e-posta adresi ile kayıtlı kullanıcı bulunamadı'
+        });
+      }
+
       try {
-        const { resetToken, user } = await userService.createPasswordResetToken(email);
+        const { verificationCode } = await userService.createPasswordResetCode(email);
         
         // E-posta gönder
-        const emailResult = await emailService.sendPasswordResetEmail(email, resetToken);
+        const emailResult = await emailService.sendPasswordResetCode(email, verificationCode);
         
         if (!emailResult.success) {
           return res.status(500).json({
@@ -622,18 +633,10 @@ class AuthController {
 
         res.json({
           success: true,
-          message: 'Şifre sıfırlama bağlantısı e-posta adresinize gönderildi'
+          message: 'Şifre sıfırlama kodu e-posta adresinize gönderildi'
         });
       } catch (error) {
-        if (error.message === 'Bu e-posta adresi ile kayıtlı kullanıcı bulunamadı') {
-          // Güvenlik için aynı mesajı döndür
-          res.json({
-            success: true,
-            message: 'Şifre sıfırlama bağlantısı e-posta adresinize gönderildi'
-          });
-        } else {
-          throw error;
-        }
+        throw error;
       }
     } catch (error) {
       console.error('Şifre sıfırlama talebi hatası:', error);
@@ -679,12 +682,46 @@ class AuthController {
     }
   }
 
-  // Şifre sıfırlama
-  async resetPassword(req, res) {
+  // Şifre sıfırlama kodunu doğrula
+  async verifyResetCode(req, res) {
     try {
-      const { token, newPassword, confirmPassword } = req.body;
+      const { email, verificationCode } = req.body;
 
-      if (!token || !newPassword || !confirmPassword) {
+      if (!email || !verificationCode) {
+        return res.status(400).json({
+          success: false,
+          message: 'E-posta ve doğrulama kodu gerekli'
+        });
+      }
+
+      const codeData = await userService.verifyPasswordResetCode(email, verificationCode);
+      
+      if (!codeData) {
+        return res.status(400).json({
+          success: false,
+          message: 'Geçersiz veya süresi dolmuş doğrulama kodu'
+        });
+      }
+
+      res.json({
+        success: true,
+        message: 'Doğrulama kodu geçerli'
+      });
+    } catch (error) {
+      console.error('Kod doğrulama hatası:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Sunucu hatası'
+      });
+    }
+  }
+
+  // Şifre sıfırlama (kod ile)
+  async resetPasswordWithCode(req, res) {
+    try {
+      const { email, verificationCode, newPassword, confirmPassword } = req.body;
+
+      if (!email || !verificationCode || !newPassword || !confirmPassword) {
         return res.status(400).json({
           success: false,
           message: 'Tüm alanlar zorunludur'
@@ -705,7 +742,7 @@ class AuthController {
         });
       }
 
-      const result = await userService.resetPassword(token, newPassword);
+      const result = await userService.resetPasswordWithCode(email, verificationCode, newPassword);
       
       res.json({
         success: true,
@@ -714,10 +751,10 @@ class AuthController {
     } catch (error) {
       console.error('Şifre sıfırlama hatası:', error);
       
-      if (error.message === 'Geçersiz veya süresi dolmuş token') {
+      if (error.message === 'Geçersiz veya süresi dolmuş doğrulama kodu') {
         return res.status(400).json({
           success: false,
-          message: 'Geçersiz veya süresi dolmuş token'
+          message: 'Geçersiz veya süresi dolmuş doğrulama kodu'
         });
       }
 

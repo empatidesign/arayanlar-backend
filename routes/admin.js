@@ -13,6 +13,14 @@ const {
   uploadProfileImage
 } = require('../controllers/adminControllers/adminUserController');
 
+// İşlem yönetimi fonksiyonları adminTransactionsController'dan import ediliyor
+const {
+  getAllTransactions,
+  getTransactionById,
+  getTransactionStats,
+  updateTransactionStatus
+} = require('../controllers/adminControllers/adminTransactionsController');
+
 // Kategori yönetimi fonksiyonları adminCategoryController'dan import ediliyor
 const {
   requireAdmin: categoryRequireAdmin,
@@ -62,13 +70,19 @@ router.use(adminLimiter);
 router.use(authenticateToken);
 router.use(requireAdmin);
 
-// Kullanıcı yönetimi endpoint'leri
+// Kullanıcı yönetimi rotaları
 router.get('/users', getAllUsers);
 router.get('/users/stats', getUserStats);
 router.get('/users/:id', getUserById);
 router.put('/users/:id', updateUser);
 router.delete('/users/:id', deleteUser);
 router.post('/users/:id/upload-image', profileImageUpload.single('image'), uploadProfileImage);
+
+// İşlem yönetimi rotaları
+router.get('/transactions', getAllTransactions);
+router.get('/transactions/stats', getTransactionStats);
+router.get('/transactions/:id', getTransactionById);
+router.put('/transactions/:id/status', updateTransactionStatus);
 
 // Dashboard endpoint'leri adminDashboardController'dan import ediliyor
 // Şikayet yönetimi fonksiyonları adminReportsController'dan import ediliyor

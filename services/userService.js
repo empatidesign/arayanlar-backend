@@ -70,25 +70,6 @@ class UserService {
     }
   }
 
-  async findUserByEmail(email) {
-    try {
-      const query = `
-        SELECT id, name, surname, email, phone, password_hash, is_verified, role,
-               subscription_end_date, birthday, gender, city, profile_image_url,
-               instagram_url, facebook_url, whatsappUrl, linkedin_url,
-               created_at
-        FROM users 
-        WHERE email = $1
-      `;
-      
-      const result = await db.query(query, [email.toLowerCase()]);
-      return result.rows[0] || null;
-    } catch (error) {
-      console.error('Email ile kullanıcı arama hatası:', error);
-      throw error;
-    }
-  }
-
   async verifyPassword(plainPassword, hashedPassword) {
     try {
       return await bcrypt.compare(plainPassword, hashedPassword);
@@ -183,69 +164,67 @@ class UserService {
     }
   }
 
-  // Şifre sıfırlama token'ı oluşturma
-  async createPasswordResetToken(email) {
+  // Şifre sıfırlama doğrulama kodu oluşturma
+  async createPasswordResetCode(email) {
     try {
       const user = await this.findUserByEmail(email);
       if (!user) {
         throw new Error('Bu e-posta adresi ile kayıtlı kullanıcı bulunamadı');
       }
 
-      // Güvenli token oluştur
-      const resetToken = crypto.randomBytes(32).toString('hex');
-      const hashedToken = crypto.createHash('sha256').update(resetToken).digest('hex');
+      // 6 haneli rastgele kod oluştur
+      const verificationCode = Math.floor(100000 + Math.random() * 900000).toString();
       
-      // Token'ı veritabanına kaydet (15 dakika geçerli)
+      // Kodu veritabanına kaydet (15 dakika geçerli)
       const expiresAt = new Date(Date.now() + 15 * 60 * 1000); // 15 dakika
       
       const query = `
-        INSERT INTO password_reset_tokens (user_id, token_hash, expires_at, created_at)
+        INSERT INTO password_reset_tokens (user_id, verification_code, expires_at, created_at)
         VALUES ($1, $2, $3, NOW())
         ON CONFLICT (user_id) 
         DO UPDATE SET 
-          token_hash = EXCLUDED.token_hash,
+          verification_code = EXCLUDED.verification_code,
           expires_at = EXCLUDED.expires_at,
           created_at = EXCLUDED.created_at,
           used = false
       `;
       
-      await db.query(query, [user.id, hashedToken, expiresAt]);
+      await db.query(query, [user.id, verificationCode, expiresAt]);
       
-      return { resetToken, user };
+      return { verificationCode, user };
     } catch (error) {
-      console.error('Şifre sıfırlama token oluşturma hatası:', error);
+      console.error('Şifre sıfırlama kodu oluşturma hatası:', error);
       throw error;
     }
   }
 
-  // Şifre sıfırlama token'ını doğrulama
-  async verifyPasswordResetToken(token) {
+  // Şifre sıfırlama doğrulama kodunu kontrol etme
+  async verifyPasswordResetCode(email, verificationCode) {
     try {
-      const hashedToken = crypto.createHash('sha256').update(token).digest('hex');
-      
       const query = `
         SELECT prt.*, u.id as user_id, u.email
         FROM password_reset_tokens prt
         JOIN users u ON prt.user_id = u.id
-        WHERE prt.token_hash = $1 
+        WHERE u.email = $1 
+          AND prt.verification_code = $2
           AND prt.expires_at > NOW() 
           AND prt.used = false
       `;
       
-      const result = await db.query(query, [hashedToken]);
+      const result = await db.query(query, [email, verificationCode]);
       return result.rows[0] || null;
     } catch (error) {
-      console.error('Şifre sıfırlama token doğrulama hatası:', error);
+      console.error('Şifre sıfırlama kodu doğrulama hatası:', error);
       throw error;
     }
   }
 
-  // Şifre sıfırlama
-  async resetPassword(token, newPassword) {
+  // Şifre sıfırlama (kod ile)
+  async resetPasswordWithCode(email, verificationCode, newPassword) {
     try {
-      const tokenData = await this.verifyPasswordResetToken(token);
-      if (!tokenData) {
-        throw new Error('Geçersiz veya süresi dolmuş token');
+      const codeData = await this.verifyPasswordResetCode(email, verificationCode);
+      if (!codeData) {
+        throw new Error('Geçersiz veya süresi dolmuş doğrulama kodu');
       }
 
       if (newPassword.length < 6) {
@@ -263,16 +242,16 @@ class UserService {
         WHERE id = $2
       `;
       
-      await db.query(updatePasswordQuery, [passwordHash, tokenData.user_id]);
+      await db.query(updatePasswordQuery, [passwordHash, codeData.user_id]);
 
-      // Token'ı kullanılmış olarak işaretle
-      const markTokenUsedQuery = `
+      // Kodu kullanılmış olarak işaretle
+      const markCodeUsedQuery = `
         UPDATE password_reset_tokens 
         SET used = true 
         WHERE user_id = $1
       `;
       
-      await db.query(markTokenUsedQuery, [tokenData.user_id]);
+      await db.query(markCodeUsedQuery, [codeData.user_id]);
 
       return { success: true, message: 'Şifre başarıyla sıfırlandı' };
     } catch (error) {

@@ -7,6 +7,18 @@ class EmailService {
       auth: {
         user: process.env.EMAIL_USER,
         pass: process.env.EMAIL_PASS
+      },
+      tls: {
+        rejectUnauthorized: false
+      }
+    });
+    
+    // SMTP bağlantısını doğrula
+    this.transporter.verify((error, success) => {
+      if (error) {
+        console.error('SMTP connection error:', error);
+      } else {
+        console.log('SMTP server is ready to take our messages');
       }
     });
     
@@ -29,22 +41,83 @@ class EmailService {
       });
 
       const mailOptions = {
-        from: process.env.EMAIL_USER,
+        from: `"Arayanvar" <${process.env.EMAIL_USER}>`,
         to: email,
         subject: 'Arayanvar - E-posta Doğrulama Kodu',
+        text: `Arayanvar e-posta doğrulama kodunuz: ${code}. Bu kod 10 dakika geçerlidir.`,
         html: `
-          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-            <h2 style="color: #333;">E-posta Doğrulama</h2>
-            <p>Merhaba,</p>
-            <p>Arayanvar hesabınızı oluşturmak için aşağıdaki 6 haneli doğrulama kodunu kullanın:</p>
-            <div style="background-color: #f5f5f5; padding: 20px; text-align: center; margin: 20px 0;">
-              <h1 style="color: #007AFF; font-size: 32px; margin: 0; letter-spacing: 5px;">${code}</h1>
-            </div>
-            <p>Bu kod 10 dakika süreyle geçerlidir.</p>
-            <p>Eğer bu işlemi siz yapmadıysanız, bu e-postayı görmezden gelebilirsiniz.</p>
-            <br>
-            <p>Saygılarımızla,<br>Arayanvar Ekibi</p>
-          </div>
+          <!DOCTYPE html>
+          <html lang="tr">
+          <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>Arayanvar - E-posta Doğrulama</title>
+          </head>
+          <body style="margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f8f9fa;">
+            <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f8f9fa; padding: 20px;">
+              <tr>
+                <td align="center">
+                  <table width="600" cellpadding="0" cellspacing="0" style="background-color: #ffffff; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); overflow: hidden;">
+                    <!-- Header -->
+                    <tr>
+                      <td style="background: linear-gradient(135deg, #007AFF 0%, #0056CC 100%); padding: 40px 30px; text-align: center;">
+                        <h1 style="color: #ffffff; margin: 0; font-size: 28px; font-weight: 600;">Arayanvar</h1>
+                        <p style="color: #ffffff; margin: 10px 0 0 0; font-size: 16px; opacity: 0.9;">E-posta Doğrulama</p>
+                      </td>
+                    </tr>
+                    
+                    <!-- Content -->
+                    <tr>
+                      <td style="padding: 40px 30px;">
+                        <h2 style="color: #333333; margin: 0 0 20px 0; font-size: 24px; font-weight: 600;">Hoş Geldiniz!</h2>
+                        
+                        <p style="color: #666666; margin: 0 0 20px 0; font-size: 16px; line-height: 1.6;">
+                          Arayanvar hesabınızı oluşturmak için e-posta adresinizi doğrulamanız gerekmektedir. Aşağıdaki doğrulama kodunu kullanın:
+                        </p>
+                        
+                        <!-- Verification Code Box -->
+                        <table width="100%" cellpadding="0" cellspacing="0" style="margin: 30px 0;">
+                          <tr>
+                            <td align="center">
+                              <div style="background: linear-gradient(135deg, #f8f9ff 0%, #e8f2ff 100%); border: 2px solid #007AFF; border-radius: 12px; padding: 30px; display: inline-block;">
+                                <p style="color: #333333; margin: 0 0 10px 0; font-size: 14px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px;">Doğrulama Kodu</p>
+                                <h1 style="color: #007AFF; margin: 0; font-size: 36px; font-weight: 700; letter-spacing: 8px; font-family: 'Courier New', monospace;">${code}</h1>
+                              </div>
+                            </td>
+                          </tr>
+                        </table>
+                        
+                        <!-- Important Notice -->
+                        <div style="background-color: #e8f5e8; border: 1px solid #4caf50; border-radius: 8px; padding: 20px; margin: 30px 0;">
+                          <p style="color: #2e7d32; margin: 0; font-size: 14px; font-weight: 600;">
+                            ✅ <strong>Önemli Bilgiler:</strong>
+                          </p>
+                          <ul style="color: #2e7d32; margin: 10px 0 0 0; padding-left: 20px; font-size: 14px;">
+                            <li>Bu kod <strong>10 dakika</strong> süreyle geçerlidir</li>
+                            <li>Kodu kimseyle paylaşmayın</li>
+                            <li>Bu işlemi siz yapmadıysanız, bu e-postayı görmezden gelebilirsiniz</li>
+                          </ul>
+                        </div>
+                      </td>
+                    </tr>
+                    
+                    <!-- Footer -->
+                    <tr>
+                      <td style="background-color: #f8f9fa; padding: 30px; text-align: center; border-top: 1px solid #e9ecef;">
+                        <p style="color: #666666; margin: 0 0 10px 0; font-size: 16px; font-weight: 600;">
+                          Saygılarımızla,<br>Arayanvar Ekibi
+                        </p>
+                        <p style="color: #999999; margin: 0; font-size: 12px;">
+                          Bu e-posta otomatik olarak gönderilmiştir. Lütfen yanıtlamayın.
+                        </p>
+                      </td>
+                    </tr>
+                  </table>
+                </td>
+              </tr>
+            </table>
+          </body>
+          </html>
         `
       };
 
@@ -98,47 +171,98 @@ class EmailService {
     this.verifiedEmails.delete(email);
   }
 
-  // Şifre sıfırlama için token ve email gönderme
-  async sendPasswordResetEmail(email, resetToken) {
+  // Şifre sıfırlama için 6 haneli doğrulama kodu gönderme
+  async sendPasswordResetCode(email, verificationCode) {
     try {
-      // Deep link URL'i oluştur (mobil uygulama için)
-      const deepLinkUrl = `arayanvar://reset-password?token=${resetToken}`;
-      // Web fallback URL'i (eğer deep link çalışmazsa)
-      const webFallbackUrl = `${process.env.CORS_ORIGIN || 'http://localhost:3000'}/reset-password?token=${resetToken}`;
-      
       const mailOptions = {
-        from: process.env.EMAIL_USER,
+        from: `"Arayanvar" <${process.env.EMAIL_USER}>`,
         to: email,
-        subject: 'Arayanvar - Şifre Sıfırlama',
+        subject: 'Arayanvar - Şifre Sıfırlama Kodu',
+        text: `Arayanvar şifre sıfırlama kodunuz: ${verificationCode}. Bu kod 15 dakika geçerlidir.`,
         html: `
-          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-            <h2 style="color: #333;">Şifre Sıfırlama</h2>
-            <p>Merhaba,</p>
-            <p>Arayanvar hesabınızın şifresini sıfırlamak için bir talepte bulundunuz.</p>
-            <p>Şifrenizi sıfırlamak için aşağıdaki butona tıklayın:</p>
-            <div style="text-align: center; margin: 30px 0;">
-              <a href="${deepLinkUrl}" 
-                 style="background-color: #007AFF; color: white; padding: 15px 30px; 
-                        text-decoration: none; border-radius: 5px; display: inline-block;">
-                Uygulamada Şifremi Sıfırla
-              </a>
-            </div>
-            <p style="text-align: center; margin: 20px 0;">
-              <small>Eğer yukarıdaki buton çalışmıyorsa, aşağıdaki linki kopyalayıp tarayıcınıza yapıştırın:</small><br>
-              <small style="word-break: break-all;">${deepLinkUrl}</small>
-            </p>
-            <p><strong>Önemli:</strong> Bu link 15 dakika geçerlidir.</p>
-            <p>Eğer bu talebi siz yapmadıysanız, bu e-postayı görmezden gelebilirsiniz.</p>
-            <br>
-            <p>Saygılarımızla,<br>Arayanvar Ekibi</p>
-          </div>
+          <!DOCTYPE html>
+          <html lang="tr">
+          <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>Arayanvar - Şifre Sıfırlama</title>
+          </head>
+          <body style="margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f8f9fa;">
+            <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f8f9fa; padding: 20px;">
+              <tr>
+                <td align="center">
+                  <table width="600" cellpadding="0" cellspacing="0" style="background-color: #ffffff; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); overflow: hidden;">
+                    <!-- Header -->
+                    <tr>
+                      <td style="background: linear-gradient(135deg, #007AFF 0%, #0056CC 100%); padding: 40px 30px; text-align: center;">
+                        <h1 style="color: #ffffff; margin: 0; font-size: 28px; font-weight: 600;">Arayanvar</h1>
+                        <p style="color: #ffffff; margin: 10px 0 0 0; font-size: 16px; opacity: 0.9;">Şifre Sıfırlama</p>
+                      </td>
+                    </tr>
+                    
+                    <!-- Content -->
+                    <tr>
+                      <td style="padding: 40px 30px;">
+                        <h2 style="color: #333333; margin: 0 0 20px 0; font-size: 24px; font-weight: 600;">Merhaba!</h2>
+                        
+                        <p style="color: #666666; margin: 0 0 20px 0; font-size: 16px; line-height: 1.6;">
+                          Arayanvar hesabınızın şifresini sıfırlamak için bir talepte bulundunuz. Aşağıdaki doğrulama kodunu kullanarak şifrenizi güvenli bir şekilde sıfırlayabilirsiniz.
+                        </p>
+                        
+                        <!-- Verification Code Box -->
+                        <table width="100%" cellpadding="0" cellspacing="0" style="margin: 30px 0;">
+                          <tr>
+                            <td align="center">
+                              <div style="background: linear-gradient(135deg, #f8f9ff 0%, #e8f2ff 100%); border: 2px solid #007AFF; border-radius: 12px; padding: 30px; display: inline-block;">
+                                <p style="color: #333333; margin: 0 0 10px 0; font-size: 14px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px;">Doğrulama Kodu</p>
+                                <h1 style="color: #007AFF; margin: 0; font-size: 36px; font-weight: 700; letter-spacing: 8px; font-family: 'Courier New', monospace;">${verificationCode}</h1>
+                              </div>
+                            </td>
+                          </tr>
+                        </table>
+                        
+                        <!-- Important Notice -->
+                        <div style="background-color: #fff3cd; border: 1px solid #ffeaa7; border-radius: 8px; padding: 20px; margin: 30px 0;">
+                          <p style="color: #856404; margin: 0; font-size: 14px; font-weight: 600;">
+                            ⚠️ <strong>Önemli Bilgiler:</strong>
+                          </p>
+                          <ul style="color: #856404; margin: 10px 0 0 0; padding-left: 20px; font-size: 14px;">
+                            <li>Bu kod <strong>15 dakika</strong> süreyle geçerlidir</li>
+                            <li>Kodu kimseyle paylaşmayın</li>
+                            <li>Bu talebi siz yapmadıysanız, hesabınızın güvenliği için şifrenizi değiştirin</li>
+                          </ul>
+                        </div>
+                        
+                        <p style="color: #666666; margin: 20px 0 0 0; font-size: 14px; line-height: 1.6;">
+                          Herhangi bir sorunuz varsa, destek ekibimizle iletişime geçebilirsiniz.
+                        </p>
+                      </td>
+                    </tr>
+                    
+                    <!-- Footer -->
+                    <tr>
+                      <td style="background-color: #f8f9fa; padding: 30px; text-align: center; border-top: 1px solid #e9ecef;">
+                        <p style="color: #666666; margin: 0 0 10px 0; font-size: 16px; font-weight: 600;">
+                          Saygılarımızla,<br>Arayanvar Ekibi
+                        </p>
+                        <p style="color: #999999; margin: 0; font-size: 12px;">
+                          Bu e-posta otomatik olarak gönderilmiştir. Lütfen yanıtlamayın.
+                        </p>
+                      </td>
+                    </tr>
+                  </table>
+                </td>
+              </tr>
+            </table>
+          </body>
+          </html>
         `
       };
 
       await this.transporter.sendMail(mailOptions);
-      return { success: true, message: 'Şifre sıfırlama e-postası gönderildi' };
+      return { success: true, message: 'Şifre sıfırlama kodu gönderildi' };
     } catch (error) {
-      console.error('Password reset email send error:', error);
+      console.error('Password reset code email send error:', error);
       return { success: false, message: 'E-posta gönderilirken hata oluştu' };
     }
   }

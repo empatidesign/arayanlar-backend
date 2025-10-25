@@ -25,6 +25,9 @@ const {
 // User listings controller'dan süre uzatma fonksiyonu import et
 const { extendListingDuration } = require('../controllers/userListingsController');
 
+// Transactions controller'dan fonksiyonları import et
+const { getUserTransactions } = require('../controllers/transactionsController');
+
 // Watch listings endpoints
 router.post('/listings', auth, checkListingScheduleWithAdminBypass, checkListingLimitWithAdminBypass, incrementListingCount, createMobileListing);
 router.get('/listings', auth, getMobileListings);
@@ -42,5 +45,8 @@ router.get('/housing/listings/:id', auth, getHousingListingById);
 
 // İlan süre uzatma endpoint'i
 router.post('/listings/extend', auth, extendListingDuration);
+
+// İşlemler endpoint'i
+router.get('/transactions', auth, getUserTransactions);
 
 module.exports = router;
