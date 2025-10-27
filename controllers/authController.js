@@ -415,6 +415,23 @@ class AuthController {
             message: 'Geçerli bir telefon numarası giriniz'
           });
         }
+
+        // Check if phone number is already in use by another user
+        try {
+          const existingUser = await userService.findUserByPhone(phone.replace(/\s/g, ''));
+          if (existingUser && existingUser.id !== userId) {
+            return res.status(409).json({
+              success: false,
+              message: 'Bu telefon numarası zaten kullanılıyor'
+            });
+          }
+        } catch (error) {
+          console.error('Phone uniqueness check error:', error);
+          return res.status(500).json({
+            success: false,
+            message: 'Telefon numarası kontrolü sırasında hata oluştu'
+          });
+        }
       }
 
       if (birthday) {

@@ -70,6 +70,25 @@ class UserService {
     }
   }
 
+  async findUserByPhone(phone) {
+    try {
+      const query = `
+        SELECT id, name, surname, email, phone, password_hash, is_verified, role,
+               subscription_end_date, birthday, gender, city, profile_image_url,
+               instagram_url, facebook_url, whatsapp_url, linkedin_url,
+               created_at
+        FROM users 
+        WHERE phone = $1
+      `;
+      
+      const result = await db.query(query, [phone]);
+      return result.rows[0] || null;
+    } catch (error) {
+      console.error('Telefon ile kullanıcı arama hatası:', error);
+      throw error;
+    }
+  }
+
   async verifyPassword(plainPassword, hashedPassword) {
     try {
       return await bcrypt.compare(plainPassword, hashedPassword);
@@ -149,8 +168,8 @@ class UserService {
     try {
       const query = `
         SELECT id, name, surname, email, phone, is_verified, role,
-               subscription_end_date, birthday, gender, city, profile_image_url,
-               instagram_url, facebook_url, whatsappUrl, linkedin_url,
+               subscription_end_date, birthday, gender, city, profile_image_url, about,
+               instagram_url, facebook_url, whatsapp_url, linkedin_url,
                created_at
         FROM users 
         WHERE id = $1
