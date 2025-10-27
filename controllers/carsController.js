@@ -449,21 +449,36 @@ const getCarProductColors = async (req, res) => {
         const resolveImagePath = (imgPath) => {
           try {
             if (!imgPath) return '';
+            
+            // Önce orijinal yolu kontrol et
             const rel = imgPath.startsWith('/') ? imgPath.substring(1) : imgPath;
             const abs = path.join(__dirname, '..', rel.replace(/\//g, path.sep));
+            console.log(`🔍 Checking original path: ${abs}, exists: ${fs.existsSync(abs)}`);
             if (fs.existsSync(abs)) return imgPath;
+            
+            // Eğer /uploads/models/colors/ yolunda değilse, bu yolu dene
+            if (!imgPath.includes('/uploads/models/colors/')) {
+              const filename = imgPath.split('/').pop();
+              const modelsColorsPath = `/uploads/models/colors/${filename}`;
+              const modelsColorsRel = modelsColorsPath.startsWith('/') ? modelsColorsPath.substring(1) : modelsColorsPath;
+              const modelsColorsAbs = path.join(__dirname, '..', modelsColorsRel.replace(/\//g, path.sep));
+              console.log(`🔍 Checking models/colors path: ${modelsColorsAbs}, exists: ${fs.existsSync(modelsColorsAbs)}`);
+              if (fs.existsSync(modelsColorsAbs)) return modelsColorsPath;
+            }
             
             // Eğer /uploads/models/colors/ yolunda değilse, /uploads/car-models/ yolunu dene
             if (imgPath.includes('/uploads/models/colors/')) {
               const carModelsPath = imgPath.replace('/uploads/models/colors/', '/uploads/car-models/');
               const carModelsRel = carModelsPath.startsWith('/') ? carModelsPath.substring(1) : carModelsPath;
               const carModelsAbs = path.join(__dirname, '..', carModelsRel.replace(/\//g, path.sep));
+              console.log(`🔍 Checking car-models path: ${carModelsAbs}, exists: ${fs.existsSync(carModelsAbs)}`);
               if (fs.existsSync(carModelsAbs)) return carModelsPath;
               
               // Eğer car-models'de de yoksa, models klasörüne düş
               const modelsPath = imgPath.replace('/uploads/models/colors/', '/uploads/models/');
               const modelsRel = modelsPath.startsWith('/') ? modelsPath.substring(1) : modelsPath;
               const modelsAbs = path.join(__dirname, '..', modelsRel.replace(/\//g, path.sep));
+              console.log(`🔍 Checking models path: ${modelsAbs}, exists: ${fs.existsSync(modelsAbs)}`);
               if (fs.existsSync(modelsAbs)) return modelsPath;
             }
             
@@ -473,19 +488,25 @@ const getCarProductColors = async (req, res) => {
               const carModelsPath = `/uploads/car-models/${filename}`;
               const carModelsRel = carModelsPath.startsWith('/') ? carModelsPath.substring(1) : carModelsPath;
               const carModelsAbs = path.join(__dirname, '..', carModelsRel.replace(/\//g, path.sep));
+              console.log(`🔍 Checking car-models filename path: ${carModelsAbs}, exists: ${fs.existsSync(carModelsAbs)}`);
               if (fs.existsSync(carModelsAbs)) return carModelsPath;
             }
             
+            console.log(`⚠️ No valid path found for: ${imgPath}`);
             return imgPath;
           } catch (e) {
+            console.error(`❌ Error resolving path for ${imgPath}:`, e);
             return imgPath;
           }
         };
         
         // Her renk için gerekli alanları kontrol et ve düzenle
+        console.log('🎨 Raw colors data:', JSON.stringify(colors, null, 2));
         colors = colors.map((color, index) => {
-          const baseImage = color.image || product.image_url || '';
+          const baseImage = color.image || color.image_url || product.image_url || '';
+          console.log(`🎨 Color ${index}: name=${color.name}, original_image=${color.image}, image_url=${color.image_url}, baseImage=${baseImage}`);
           const resolvedImage = resolveImagePath(baseImage);
+          console.log(`🎨 Color ${index}: resolvedImage=${resolvedImage}`);
           const imagesArray = color.images && Array.isArray(color.images) ? color.images.map(resolveImagePath) : [resolvedImage];
           return {
             id: color.id || `color-${index}`,
