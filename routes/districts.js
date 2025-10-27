@@ -14,6 +14,12 @@ const {
   deleteDistrict
 } = districtsController;
 
+// Admin - İlçe sıralama fonksiyonu adminControllers altında
+const { updateDistrictOrder } = require('../controllers/adminControllers/adminHouseController');
+
+// Admin kontrolü
+const { requireAdmin } = require('../controllers/adminController');
+
 // Tüm ilçeleri getir (token gerekli)
 router.get('/', auth, getDistricts);
 
@@ -22,6 +28,9 @@ router.get('/istanbul', auth, getIstanbulDistricts);
 
 // İlçe ara (token gerekli)
 router.get('/search', auth, searchDistricts);
+
+// Admin - İlçe sıralamasını güncelle (parametreli rotalardan ÖNCE olmalı)
+router.put('/order', auth, requireAdmin, updateDistrictOrder);
 
 // Belirli bir ilçeyi getir (token gerekli)
 router.get('/:id', auth, getDistrictById);

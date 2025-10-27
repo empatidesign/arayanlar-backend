@@ -89,6 +89,7 @@ const getAllWatchModels = async (req, res) => {
     let query = `
       SELECT 
         wp.*,
+        wp.order_index,
         wb.name as brand_name
       FROM watch_products wp
       LEFT JOIN watch_brands wb ON wp.brand_id = wb.id
@@ -102,7 +103,7 @@ const getAllWatchModels = async (req, res) => {
       queryParams.push(brand_id);
     }
     
-    query += ` ORDER BY wp.created_at DESC LIMIT $${queryParams.length + 1} OFFSET $${queryParams.length + 2}`;
+    query += ` ORDER BY wp.order_index ASC NULLS LAST, wb.name ASC, wp.name ASC LIMIT $${queryParams.length + 1} OFFSET $${queryParams.length + 2}`;
     queryParams.push(parseInt(limit));
     queryParams.push(offset);
 
@@ -468,9 +469,9 @@ const getWatchBrandsForAdmin = async (req, res) => {
     }
 
     const result = await db.query(`
-      SELECT DISTINCT id, name, category_id, image, country, description, is_active, created_at, updated_at
+      SELECT DISTINCT id, name, category_id, image, country, description, is_active, order_index, created_at, updated_at
       FROM watch_brands 
-      ORDER BY name ASC
+      ORDER BY order_index ASC NULLS LAST, name ASC
     `);
 
     res.json({
@@ -1165,6 +1166,112 @@ const extendWatchListingDuration = async (req, res) => {
   }
 };
 
+// Admin - Saat markası sıralamasını güncelle
+const updateWatchBrandOrder = async (req, res) => {
+  try {
+    if (!req.user || req.user.role !== 'admin') {
+      return res.status(403).json({ success: false, message: 'Bu işlem için admin yetkisi gerekli' });
+    }
+
+    let { orders } = req.body;
+    if (!Array.isArray(orders)) {
+      return res.status(400).json({ success: false, message: 'orders alanı bir dizi olmalıdır' });
+    }
+
+    orders = orders
+      .map((item, idx) => {
+        const id = parseInt(item.id ?? item.brand_id ?? item.brandId ?? item.item_id);
+        const rawOrder = item.order_index ?? item.order ?? item.position ?? (idx + 1);
+        const orderIndex = parseInt(rawOrder);
+        return { id, order_index: orderIndex };
+      })
+      .filter((x) => Number.isInteger(x.id) && Number.isInteger(x.order_index));
+
+    if (!orders.length) {
+      return res.status(400).json({ success: false, message: 'Geçerli öğe bulunamadı: id ve order_index gerekli' });
+    }
+
+    // Transaction başlat
+    await db.query('BEGIN');
+
+    try {
+      for (const order of orders) {
+        await db.query(
+          'UPDATE watch_brands SET order_index = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2',
+          [order.order_index, order.id]
+        );
+      }
+
+      await db.query('COMMIT');
+
+      return res.json({
+        success: true,
+        message: 'Saat markası sıralaması güncellendi',
+        data: { updatedCount: orders.length }
+      });
+    } catch (txError) {
+      await db.query('ROLLBACK');
+      throw txError;
+    }
+  } catch (error) {
+    console.error('Saat markası sıralaması güncelleme hatası:', error);
+    return res.status(500).json({ success: false, message: 'Saat markası sıralaması güncellenemedi' });
+  }
+};
+
+// Admin - Saat modeli sıralamasını güncelle
+const updateWatchModelOrder = async (req, res) => {
+  try {
+    if (!req.user || req.user.role !== 'admin') {
+      return res.status(403).json({ success: false, message: 'Bu işlem için admin yetkisi gerekli' });
+    }
+
+    let { orders } = req.body;
+    if (!Array.isArray(orders)) {
+      return res.status(400).json({ success: false, message: 'orders alanı bir dizi olmalıdır' });
+    }
+
+    orders = orders
+      .map((item, idx) => {
+        const id = parseInt(item.id ?? item.model_id ?? item.product_id ?? item.item_id);
+        const rawOrder = item.order_index ?? item.order ?? item.position ?? (idx + 1);
+        const orderIndex = parseInt(rawOrder);
+        return { id, order_index: orderIndex };
+      })
+      .filter((x) => Number.isInteger(x.id) && Number.isInteger(x.order_index));
+
+    if (!orders.length) {
+      return res.status(400).json({ success: false, message: 'Geçerli öğe bulunamadı: id ve order_index gerekli' });
+    }
+
+    // Transaction başlat
+    await db.query('BEGIN');
+
+    try {
+      for (const order of orders) {
+        await db.query(
+          'UPDATE watch_products SET order_index = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2',
+          [order.order_index, order.id]
+        );
+      }
+
+      await db.query('COMMIT');
+
+      return res.json({
+        success: true,
+        message: 'Saat modeli sıralaması güncellendi',
+        data: { updatedCount: orders.length }
+      });
+    } catch (txError) {
+      await db.query('ROLLBACK');
+      throw txError;
+    }
+  } catch (error) {
+    console.error('Saat modeli sıralaması güncelleme hatası:', error);
+    return res.status(500).json({ success: false, message: 'Saat modeli sıralaması güncellenemedi' });
+  }
+};
+
 module.exports = {
   requireAdmin: process.env.NODE_ENV === 'production' ? requireAdmin : requireAdminDev,
   watchBrandUpload,
@@ -1174,12 +1281,14 @@ module.exports = {
   createWatchBrand,
   updateWatchBrand,
   deleteWatchBrand,
+  updateWatchBrandOrder,
   // Saat modeli yönetimi
   getAllWatchModels,
   createWatchModel,
   updateWatchModel,
   deleteWatchModel,
   toggleWatchModelStatus,
+  updateWatchModelOrder,
   // Saat ilanı yönetimi
   getAllWatchListingsForAdmin,
   getPendingWatchListings,

@@ -36,7 +36,9 @@ const {
   approveWatchListing,
   rejectWatchListing,
   deleteWatchListingByAdmin,
-  extendWatchListingDuration
+  extendWatchListingDuration,
+  updateWatchBrandOrder,
+  updateWatchModelOrder
 } = require('../controllers/adminControllers/adminWatchController');
 
 // requireAdmin middleware from adminController
@@ -50,6 +52,9 @@ router.get('/admin/brands', authenticateToken, requireAdmin, getWatchBrandsForAd
 
 // Admin - Saat markası oluştur
 router.post('/brands', authenticateToken, requireAdmin, watchBrandUpload.single('logo'), createWatchBrand);
+
+// Admin - Saat markası sıralamasını güncelle
+router.put('/brands/order', authenticateToken, requireAdmin, updateWatchBrandOrder);
 
 // Admin - Saat markası güncelle
 router.put('/brands/:id', authenticateToken, requireAdmin, watchBrandUpload.single('logo'), updateWatchBrand);
@@ -68,6 +73,9 @@ router.get('/models', authenticateToken, requireAdmin, getAllWatchModels);
 
 // Admin - Saat modeli oluştur
 router.post('/models', authenticateToken, requireAdmin, watchModelUpload, createWatchModel);
+
+// Admin - Saat modeli sıralamasını güncelle
+router.put('/models/order', authenticateToken, requireAdmin, updateWatchModelOrder);
 
 // Admin - Saat modeli güncelle
 router.put('/models/:id', authenticateToken, requireAdmin, watchModelUpload, updateWatchModel);

@@ -57,7 +57,9 @@ const {
   rejectCarListing,
   revertCarListingToPending,
   deleteCarListingByAdmin,
-  extendCarListingDuration
+  extendCarListingDuration,
+  updateCarBrandOrder,
+  updateCarModelOrder
 } = require('../controllers/adminControllers/adminCarController');
 
 // Diğer admin fonksiyonları adminController'dan import ediliyor
@@ -131,17 +133,21 @@ router.delete('/sections/:id', deleteSection);
 
 // Slider yönetimi endpoint'leri
 router.post('/sliders', sliderUpload.single('image'), createSlider);
+router.put('/sliders/order', updateSliderOrder);
 router.put('/sliders/:id', sliderUpload.single('image'), updateSlider);
 router.delete('/sliders/:id', deleteSlider);
-router.put('/sliders/order', updateSliderOrder);
 
 // Araba marka yönetimi endpoint'leri
 router.post('/car-brands', brandUpload.single('logo'), createCarBrand);
+// Araba marka sıralarını güncelle
+router.put('/car-brands/order', updateCarBrandOrder);
 router.put('/car-brands/:id', brandUpload.single('logo'), updateCarBrand);
 router.delete('/car-brands/:id', deleteCarBrand);
 
 // Araba model yönetimi
 router.post('/car-models', modelUpload, createCarModel);
+// Araba model sıralarını güncelle (route'u parametreli path'ten önce tanımla)
+router.put('/car-models/order', updateCarModelOrder);
 router.put('/car-models/:id', modelUpload, updateCarModel);
 router.delete('/car-models/:id', deleteCarModel);
 router.put('/car-models/:id/toggle-status', toggleCarModelStatus);

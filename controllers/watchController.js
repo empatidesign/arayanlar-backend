@@ -73,9 +73,9 @@ const modelUpload = multer({
 const getWatchBrands = async (req, res) => {
   try {
     const result = await db.query(`
-      SELECT DISTINCT id, name, category_id, image, created_at, updated_at
+      SELECT DISTINCT id, name, category_id, image, order_index, created_at, updated_at
       FROM watch_brands 
-      ORDER BY name ASC
+      ORDER BY order_index ASC NULLS LAST, name ASC
     `);
 
     res.json({
@@ -108,10 +108,11 @@ const getWatchProductsByBrand = async (req, res) => {
         images,
         colors,
         specifications,
-        category_id
+        category_id,
+        order_index
       FROM watch_products
       WHERE brand_id = $1 AND is_active = true
-      ORDER BY name ASC
+      ORDER BY order_index ASC NULLS LAST, name ASC
     `, [brandId]);
 
     res.json({

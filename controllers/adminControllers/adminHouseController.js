@@ -596,6 +596,63 @@ const extendHousingListingDuration = async (req, res) => {
   }
 };
 
+// Admin - İlçe sıralarını güncelle
+const updateDistrictOrder = async (req, res) => {
+  try {
+    let { orders } = req.body; // Beklenen: [{ id, order_index }, ...]
+
+    // Eğer tüm body bir dizi ise fallback
+    if (!orders && Array.isArray(req.body)) {
+      orders = req.body;
+    }
+
+    if (typeof orders === 'string') {
+      try {
+        orders = JSON.parse(orders);
+      } catch (_) {
+        return res.status(400).json({ success: false, message: 'Sıra verisi JSON olmalı' });
+      }
+    }
+
+    if (!orders || !Array.isArray(orders)) {
+      return res.status(400).json({ success: false, message: 'orders bir dizi olmalı' });
+    }
+
+    const normalized = orders
+      .map((item, idx) => {
+        const rawId = item.id ?? item.district_id ?? item.item_id;
+        const rawOrder = item.order_index ?? item.order ?? item.position ?? (idx + 1);
+        const id = Number.parseInt(String(rawId), 10);
+        let orderIndex = Number.parseInt(String(rawOrder), 10);
+        if (!Number.isFinite(orderIndex) || orderIndex < 1) orderIndex = idx + 1;
+        return { id, order_index: orderIndex };
+      })
+      .filter((x) => Number.isInteger(x.id) && x.id > 0);
+
+    if (normalized.length === 0) {
+      return res.status(400).json({ success: false, message: 'Geçerli öğe yok' });
+    }
+
+    await db.query('BEGIN');
+    try {
+      for (const order of normalized) {
+        await db.query(
+          'UPDATE districts SET order_index = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2',
+          [order.order_index, order.id]
+        );
+      }
+      await db.query('COMMIT');
+      return res.json({ success: true, message: 'İlçe sıraları güncellendi' });
+    } catch (txErr) {
+      await db.query('ROLLBACK');
+      throw txErr;
+    }
+  } catch (error) {
+    console.error('İlçe sıraları güncellenirken hata:', error);
+    return res.status(500).json({ success: false, message: 'Sıralama güncellenemedi' });
+  }
+};
+
 module.exports = {
   requireAdmin,
   getAllHousingListingsForAdmin,
@@ -607,5 +664,6 @@ module.exports = {
   deleteHousingListingByAdmin,
   getHousingListingById,
   updateHousingListing,
-  extendHousingListingDuration
+  extendHousingListingDuration,
+  updateDistrictOrder
 };

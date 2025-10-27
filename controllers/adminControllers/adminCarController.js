@@ -751,6 +751,160 @@ const extendCarListingDuration = async (req, res) => {
   }
 };
 
+// Araba marka sıralarını güncelle
+const updateCarBrandOrder = async (req, res) => {
+  try {
+    let { orders } = req.body; // Beklenen: [{ id: 1, order_index: 2 }, ...]
+
+    // Eğer tüm body bir dizi ise fallback olarak kullan
+    if (!orders && Array.isArray(req.body)) {
+      orders = req.body;
+    }
+
+    // İstek gövdesi farklı formatta geldiyse güvenli parse dene
+    if (typeof orders === 'string') {
+      try {
+        orders = JSON.parse(orders);
+      } catch (e) {
+        return res.status(400).json({
+          success: false,
+          message: 'Sıra verisi JSON formatında olmalı'
+        });
+      }
+    }
+
+    // Temel doğrulamalar (esnetilmiş)
+    if (!orders || !Array.isArray(orders)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Geçersiz sıra verisi: orders bir dizi olmalı'
+      });
+    }
+
+    // Eleman bazlı normalizasyon (esnek alan isimleri ve değer dönüştürme)
+    const normalized = orders.map((item, idx) => {
+      const rawId = item.id ?? item.brand_id ?? item.brandId;
+      const rawOrder = item.order_index ?? item.order ?? item.position ?? (idx + 1);
+
+      const id = Number.parseInt(String(rawId), 10);
+      let orderIndex = Number.parseInt(String(rawOrder), 10);
+      if (!Number.isFinite(orderIndex) || orderIndex < 1) orderIndex = idx + 1;
+
+      return { id, order_index: orderIndex };
+    }).filter(x => Number.isInteger(x.id) && x.id > 0);
+
+    if (normalized.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Geçerli öğe bulunamadı: id ve order_index gerekli'
+      });
+    }
+
+    // Transaction başlat
+    await db.query('BEGIN');
+
+    try {
+      for (const order of normalized) {
+        const query = 'UPDATE cars_brands SET order_index = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2';
+        await db.query(query, [order.order_index, order.id]);
+      }
+
+      await db.query('COMMIT');
+
+      res.json({
+        success: true,
+        message: 'Araba marka sıraları başarıyla güncellendi'
+      });
+    } catch (error) {
+      await db.query('ROLLBACK');
+      throw error;
+    }
+  } catch (error) {
+    console.error('Araba marka sıraları güncellenirken hata:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Araba marka sıraları güncellenirken hata oluştu'
+    });
+  }
+};
+
+// Araba model sıralarını güncelle
+const updateCarModelOrder = async (req, res) => {
+  try {
+    let { orders } = req.body; // Beklenen: [{ id: 1, order_index: 2 }, ...]
+
+    // Eğer tüm body bir dizi ise fallback olarak kullan
+    if (!orders && Array.isArray(req.body)) {
+      orders = req.body;
+    }
+
+    // İstek gövdesi farklı formatta geldiyse güvenli parse dene
+    if (typeof orders === 'string') {
+      try {
+        orders = JSON.parse(orders);
+      } catch (e) {
+        return res.status(400).json({
+          success: false,
+          message: 'Sıra verisi JSON formatında olmalı'
+        });
+      }
+    }
+
+    // Temel doğrulamalar (esnetilmiş)
+    if (!orders || !Array.isArray(orders)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Geçersiz sıra verisi: orders bir dizi olmalı'
+      });
+    }
+
+    // Eleman bazlı normalizasyon (esnek alan isimleri ve değer dönüştürme)
+    const normalized = orders.map((item, idx) => {
+      const rawId = item.id ?? item.model_id ?? item.product_id ?? item.productId ?? item.modelId;
+      const rawOrder = item.order_index ?? item.order ?? item.position ?? (idx + 1);
+
+      const id = Number.parseInt(String(rawId), 10);
+      let orderIndex = Number.parseInt(String(rawOrder), 10);
+      if (!Number.isFinite(orderIndex) || orderIndex < 1) orderIndex = idx + 1;
+
+      return { id, order_index: orderIndex };
+    }).filter(x => Number.isInteger(x.id) && x.id > 0);
+
+    if (normalized.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Geçerli öğe bulunamadı: id ve order_index gerekli'
+      });
+    }
+
+    // Transaction başlat
+    await db.query('BEGIN');
+
+    try {
+      for (const order of normalized) {
+        const query = 'UPDATE cars_products SET order_index = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2';
+        await db.query(query, [order.order_index, order.id]);
+      }
+
+      await db.query('COMMIT');
+
+      res.json({
+        success: true,
+        message: 'Araba model sıraları başarıyla güncellendi'
+      });
+    } catch (error) {
+      await db.query('ROLLBACK');
+      throw error;
+    }
+  } catch (error) {
+    console.error('Araba model sıraları güncellenirken hata:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Araba model sıraları güncellenirken hata oluştu'
+    });
+  }
+};
+
 module.exports = {
   requireAdmin,
   brandUpload,
@@ -767,5 +921,7 @@ module.exports = {
   rejectCarListing,
   revertCarListingToPending,
   deleteCarListingByAdmin,
-  extendCarListingDuration
+  extendCarListingDuration,
+  updateCarBrandOrder,
+  updateCarModelOrder
 };

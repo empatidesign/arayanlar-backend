@@ -49,7 +49,7 @@ const getDistricts = async (req, res) => {
       params.push(city);
     }
     
-    query += ' ORDER BY name ASC';
+    query += ' ORDER BY order_index ASC NULLS LAST, name ASC';
     
     const result = await db.query(query, params);
     
@@ -73,6 +73,8 @@ const getDistricts = async (req, res) => {
     });
   }
 };
+
+// Admin sıralama işlemleri adminControllers altında tutulur
 
 // Belirli bir ilçeyi getir
 const getDistrictById = async (req, res) => {
@@ -132,7 +134,7 @@ const searchDistricts = async (req, res) => {
       params.push(city);
     }
     
-    query += ' ORDER BY name ASC LIMIT 20';
+    query += ' ORDER BY order_index ASC NULLS LAST, name ASC LIMIT 20';
     
     const result = await db.query(query, params);
     
@@ -161,7 +163,7 @@ const searchDistricts = async (req, res) => {
 const getIstanbulDistricts = async (req, res) => {
   try {
     const result = await db.query(
-      'SELECT id, name, city, image FROM districts WHERE city = $1 AND is_active = true ORDER BY name ASC',
+      'SELECT id, name, city, image, order_index FROM districts WHERE city = $1 AND is_active = true ORDER BY order_index ASC NULLS LAST, name ASC',
       ['İstanbul']
     );
     

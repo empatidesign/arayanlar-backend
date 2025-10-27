@@ -14,12 +14,13 @@ const getCarBrands = async (req, res) => {
         cb.is_active, 
         cb.created_at, 
         cb.updated_at,
+        cb.order_index,
         COUNT(cp.id) as model_count
       FROM cars_brands cb
       LEFT JOIN cars_products cp ON cb.id = cp.brand_id AND cp.is_active = true
       WHERE cb.is_active = true
       GROUP BY cb.id, cb.name, cb.logo_url, cb.country, cb.is_active, cb.created_at, cb.updated_at
-      ORDER BY cb.name ASC
+      ORDER BY cb.order_index ASC NULLS LAST, cb.name ASC
     `);
 
     res.json({
@@ -44,13 +45,13 @@ const getCarBrands = async (req, res) => {
 // Tüm araba modellerini listele (admin için)
 const getAllCarModels = async (req, res) => {
   try {
-    const result = await db.query(`
+  const result = await db.query(`
       SELECT cp.id, cp.name, cp.brand_id, cp.image_url, cp.is_active, cp.created_at, cp.updated_at,
-             cp.description, cp.engine_size, cp.colors,
+             cp.description, cp.engine_size, cp.colors, cp.order_index,
              cb.name as brand_name
       FROM cars_products cp
       LEFT JOIN cars_brands cb ON cp.brand_id = cb.id
-      ORDER BY cb.name ASC, cp.name ASC
+      ORDER BY cp.order_index ASC NULLS LAST, cb.name ASC, cp.name ASC
     `);
 
     res.json({
@@ -86,7 +87,7 @@ const getCarModelsByBrand = async (req, res) => {
         updated_at
       FROM cars_products
       WHERE brand_id = $1 AND is_active = true
-      ORDER BY name ASC
+      ORDER BY order_index ASC NULLS LAST, name ASC
     `, [brandId]);
 
     res.json({
