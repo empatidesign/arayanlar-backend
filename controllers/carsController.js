@@ -445,19 +445,37 @@ const getCarProductColors = async (req, res) => {
       if (product.colors) {
         colors = typeof product.colors === 'string' ? JSON.parse(product.colors) : product.colors;
         
-        // Renk görsel yolu için geriye dönük uyumluluk: colors klasörü yoksa models klasörüne düş
+        // Renk görsel yolu için geriye dönük uyumluluk: farklı klasörleri kontrol et
         const resolveImagePath = (imgPath) => {
           try {
             if (!imgPath) return '';
             const rel = imgPath.startsWith('/') ? imgPath.substring(1) : imgPath;
             const abs = path.join(__dirname, '..', rel.replace(/\//g, path.sep));
             if (fs.existsSync(abs)) return imgPath;
+            
+            // Eğer /uploads/models/colors/ yolunda değilse, /uploads/car-models/ yolunu dene
             if (imgPath.includes('/uploads/models/colors/')) {
-              const alt = imgPath.replace('/uploads/models/colors/', '/uploads/models/');
-              const altRel = alt.startsWith('/') ? alt.substring(1) : alt;
-              const altAbs = path.join(__dirname, '..', altRel.replace(/\//g, path.sep));
-              if (fs.existsSync(altAbs)) return alt;
+              const carModelsPath = imgPath.replace('/uploads/models/colors/', '/uploads/car-models/');
+              const carModelsRel = carModelsPath.startsWith('/') ? carModelsPath.substring(1) : carModelsPath;
+              const carModelsAbs = path.join(__dirname, '..', carModelsRel.replace(/\//g, path.sep));
+              if (fs.existsSync(carModelsAbs)) return carModelsPath;
+              
+              // Eğer car-models'de de yoksa, models klasörüne düş
+              const modelsPath = imgPath.replace('/uploads/models/colors/', '/uploads/models/');
+              const modelsRel = modelsPath.startsWith('/') ? modelsPath.substring(1) : modelsPath;
+              const modelsAbs = path.join(__dirname, '..', modelsRel.replace(/\//g, path.sep));
+              if (fs.existsSync(modelsAbs)) return modelsPath;
             }
+            
+            // Eğer image path /uploads/car-models/ ile başlamıyorsa, bu yolu dene
+            if (!imgPath.includes('/uploads/car-models/')) {
+              const filename = imgPath.split('/').pop();
+              const carModelsPath = `/uploads/car-models/${filename}`;
+              const carModelsRel = carModelsPath.startsWith('/') ? carModelsPath.substring(1) : carModelsPath;
+              const carModelsAbs = path.join(__dirname, '..', carModelsRel.replace(/\//g, path.sep));
+              if (fs.existsSync(carModelsAbs)) return carModelsPath;
+            }
+            
             return imgPath;
           } catch (e) {
             return imgPath;
