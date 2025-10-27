@@ -57,9 +57,6 @@ const watchModelUpload = multer({
     } else {
       cb(new Error('Sadece resim dosyaları yüklenebilir'), false);
     }
-  },
-  limits: {
-    fileSize: 5 * 1024 * 1024 // 5MB limit
   }
 }).fields([
   { name: 'image', maxCount: 1 },
