@@ -44,7 +44,7 @@ const strictAuthLimiter = rateLimit({
 // Admin işlemleri için özel rate limiter
 const adminLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 dakika
-  max: 500, // IP başına maksimum 30 admin işlemi
+  max: 4000, // IP başına maksimum 1000 admin işlemi
   message: {
     error: 'Çok fazla admin işlemi, lütfen 15 dakika sonra tekrar deneyin'
   },
