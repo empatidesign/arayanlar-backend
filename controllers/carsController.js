@@ -137,13 +137,8 @@ const getEnginesByModel = async (req, res) => {
         id: `${model.id}_${index}`,
         size: size
       }));
-    } else {
-      // Eğer engine_size yoksa varsayılan değer
-      engines = [{
-        id: model.id,
-        size: '1.6'
-      }];
     }
+    // Eğer engine_size yoksa boş array döndür (varsayılan değer verme)
 
     res.json({
       success: true,
