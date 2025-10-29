@@ -204,22 +204,10 @@ const modelUpload = multer({
     if (file.mimetype.startsWith('image/')) {
       cb(null, true);
     } else {
-      cb(new Error('Sadece resim dosyaları yüklenebilir'), false);
+      cb(new Error('Sadece resim dosyaları yüklenebilir!'), false);
     }
   }
-}).fields([
-  { name: 'image', maxCount: 1 },
-  { name: 'color_image_0', maxCount: 1 },
-  { name: 'color_image_1', maxCount: 1 },
-  { name: 'color_image_2', maxCount: 1 },
-  { name: 'color_image_3', maxCount: 1 },
-  { name: 'color_image_4', maxCount: 1 },
-  { name: 'color_image_5', maxCount: 1 },
-  { name: 'color_image_6', maxCount: 1 },
-  { name: 'color_image_7', maxCount: 1 },
-  { name: 'color_image_8', maxCount: 1 },
-  { name: 'color_image_9', maxCount: 1 }
-]);
+}).any();
 
 // Araba modeli oluştur
 const createCarModel = async (req, res) => {
@@ -241,6 +229,12 @@ const createCarModel = async (req, res) => {
       });
     }
 
+    // Motor hacmi validasyonu
+    if (engine_size && engine_size.trim()) {
+      const engineSizes = engine_size.split(',').map(size => size.trim()).filter(size => size.length > 0);
+      // Sınırlama kaldırıldı - kullanıcı istediği kadar motor hacmi girebilir
+    }
+
     // Convert empty strings to null for integer fields
     const processedModelYearStart = model_year_start === '' || model_year_start === undefined ? null : parseInt(model_year_start);
     const processedModelYearEnd = model_year_end === '' || model_year_end === undefined ? null : parseInt(model_year_end);
@@ -254,8 +248,8 @@ const createCarModel = async (req, res) => {
     if (colors) {
       const parsedColors = JSON.parse(colors);
       colorImages = parsedColors.map((color, index) => {
-        const colorImageFile = req.files && req.files[`color_image_${index}`] ? 
-          req.files[`color_image_${index}`][0] : null;
+        // Dinamik olarak color_image_${index} alanını ara
+        const colorImageFile = req.files && req.files.find(file => file.fieldname === `color_image_${index}`);
         
         return {
           name: color.name,
@@ -306,6 +300,22 @@ const updateCarModel = async (req, res) => {
       });
     }
 
+    // Motor hacmi validasyonu
+    if (engine_size && engine_size.trim()) {
+      const engineSizes = engine_size.split(',').map(size => size.trim()).filter(size => size.length > 0);
+      // Sınırlama kaldırıldı - kullanıcı istediği kadar motor hacmi girebilir
+      
+      // Her motor hacmi için uzunluk kontrolü - sınır kaldırıldı
+      // for (const size of engineSizes) {
+      //   if (size.length > 20) {
+      //     return res.status(400).json({
+      //       success: false,
+      //       message: 'Motor hacmi çok uzun (maksimum 20 karakter)'
+      //     });
+      //   }
+      // }
+    }
+
     // Convert empty strings to null for integer fields
     const processedModelYearStart = model_year_start === '' || model_year_start === undefined ? null : parseInt(model_year_start);
     const processedModelYearEnd = model_year_end === '' || model_year_end === undefined ? null : parseInt(model_year_end);
@@ -320,8 +330,8 @@ const updateCarModel = async (req, res) => {
     }
 
     // Ana resim URL'sini al (yeni yüklendiyse)
-    const imageUrl = req.files && req.files['image'] ? 
-      `/uploads/car-models/${req.files['image'][0].filename}` : 
+    const imageUrl = req.files && req.files.find(file => file.fieldname === 'image') ? 
+      `/uploads/car-models/${req.files.find(file => file.fieldname === 'image').filename}` : 
       existingModel.rows[0].image_url;
 
     // Renk resimlerini işle
@@ -329,8 +339,8 @@ const updateCarModel = async (req, res) => {
     if (colors) {
       const parsedColors = JSON.parse(colors);
       colorImages = parsedColors.map((color, index) => {
-        const colorImageFile = req.files && req.files[`color_image_${index}`] ? 
-          req.files[`color_image_${index}`][0] : null;
+        // Dinamik olarak color_image_${index} alanını ara
+        const colorImageFile = req.files && req.files.find(file => file.fieldname === `color_image_${index}`);
         
         return {
           name: color.name,
