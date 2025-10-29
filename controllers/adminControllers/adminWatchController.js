@@ -58,7 +58,19 @@ const watchModelUpload = multer({
       cb(new Error('Sadece resim dosyaları yüklenebilir'), false);
     }
   }
-}).any();
+}).fields([
+  { name: 'image', maxCount: 1 },
+  { name: 'color_image_0', maxCount: 1 },
+  { name: 'color_image_1', maxCount: 1 },
+  { name: 'color_image_2', maxCount: 1 },
+  { name: 'color_image_3', maxCount: 1 },
+  { name: 'color_image_4', maxCount: 1 },
+  { name: 'color_image_5', maxCount: 1 },
+  { name: 'color_image_6', maxCount: 1 },
+  { name: 'color_image_7', maxCount: 1 },
+  { name: 'color_image_8', maxCount: 1 },
+  { name: 'color_image_9', maxCount: 1 }
+]);
 
 // Admin için tüm saat modellerini getir
 const getAllWatchModels = async (req, res) => {
@@ -139,14 +151,14 @@ const getAllWatchModels = async (req, res) => {
 const createWatchModel = async (req, res) => {
   try {
     // Admin kontrolü
-    if (!req.user || req.user.role !== 'admin') {
+    if (req.user.role !== 'admin') {
       return res.status(403).json({
         success: false,
         message: 'Bu işlem için admin yetkisi gerekli'
       });
     }
 
-    const { name, brand_id, colors, model, specifications, description } = req.body;
+    const { name, brand_id, colors } = req.body;
     
     if (!name || !brand_id) {
       return res.status(400).json({
@@ -164,13 +176,9 @@ const createWatchModel = async (req, res) => {
       });
     }
 
-    // Ana resim işle
     let image_url = null;
-    if (req.files && req.files.length > 0) {
-      const imageFile = req.files.find(file => file.fieldname === 'image');
-      if (imageFile) {
-        image_url = `/uploads/watch-models/${imageFile.filename}`;
-      }
+    if (req.files && req.files.image && req.files.image[0]) {
+      image_url = `/uploads/watch-models/${req.files.image[0].filename}`;
     }
 
     // Renk resimlerini işle
@@ -181,11 +189,8 @@ const createWatchModel = async (req, res) => {
         if (Array.isArray(parsedColors)) {
           colorImages = parsedColors.map((color, index) => {
             let colorImageUrl = null;
-            if (req.files && req.files.length > 0) {
-              const colorImageFile = req.files.find(file => file.fieldname === `color_image_${index}`);
-              if (colorImageFile) {
-                colorImageUrl = `/uploads/watch-models/${colorImageFile.filename}`;
-              }
+            if (req.files && req.files[`color_image_${index}`] && req.files[`color_image_${index}`][0]) {
+              colorImageUrl = `/uploads/watch-models/${req.files[`color_image_${index}`][0].filename}`;
             }
             return {
               ...color,
@@ -199,18 +204,10 @@ const createWatchModel = async (req, res) => {
     }
 
     const result = await db.query(`
-      INSERT INTO watch_products (name, brand_id, image, colors, category_id, model, specifications, description, created_at, updated_at)
-      VALUES ($1, $2, $3, $4, 7, $5, $6, $7, NOW(), NOW())
+      INSERT INTO watch_products (name, brand_id, image, colors, category_id, created_at, updated_at)
+      VALUES ($1, $2, $3, $4, 7, NOW(), NOW())
       RETURNING *
-    `, [
-      name, 
-      brand_id, 
-      image_url, 
-      JSON.stringify(colorImages), 
-      model || null, 
-      specifications || null, 
-      description || null
-    ]);
+    `, [name, brand_id, image_url, JSON.stringify(colorImages)]);
 
     res.status(201).json({
       success: true,
@@ -262,9 +259,8 @@ const updateWatchModel = async (req, res) => {
     }
 
     let image_url = existingModel.rows[0].image;
-    const imageFile = req.files.find(file => file.fieldname === 'image');
-    if (imageFile) {
-      image_url = `/uploads/watch-models/${imageFile.filename}`;
+    if (req.files && req.files.image && req.files.image[0]) {
+      image_url = `/uploads/watch-models/${req.files.image[0].filename}`;
       
       // Eski resmi sil
       if (existingModel.rows[0].image) {
@@ -283,9 +279,8 @@ const updateWatchModel = async (req, res) => {
         if (Array.isArray(parsedColors)) {
           colorImages = parsedColors.map((color, index) => {
             let colorImageUrl = color.image; // Mevcut resmi koru
-            const colorImageFile = req.files.find(file => file.fieldname === `color_image_${index}`);
-            if (colorImageFile) {
-              colorImageUrl = `/uploads/watch-models/${colorImageFile.filename}`;
+            if (req.files && req.files[`color_image_${index}`] && req.files[`color_image_${index}`][0]) {
+              colorImageUrl = `/uploads/watch-models/${req.files[`color_image_${index}`][0].filename}`;
             }
             return {
               ...color,
