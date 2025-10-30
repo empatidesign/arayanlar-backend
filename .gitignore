@@ -29,7 +29,7 @@ build/
 dist/
 
 # Uploads and generated files
-# uploads/ - now tracked in git
+uploads/
 
 # OS / Editor
 .DS_Store

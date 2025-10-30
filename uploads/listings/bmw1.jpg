@@ -1,8 +1,0 @@
-<svg width="300" height="200" xmlns="http://www.w3.org/2000/svg">
-  <rect width="100%" height="100%" fill="#f5f5f5"/>
-  <rect x="20" y="20" width="260" height="160" fill="#212121" rx="10"/>
-  <text x="150" y="90" font-family="Arial, sans-serif" font-size="20" fill="white" text-anchor="middle">BMW 320i</text>
-  <text x="150" y="120" font-family="Arial, sans-serif" font-size="16" fill="#81c784" text-anchor="middle">M Sport</text>
-  <circle cx="70" cy="150" r="20" fill="#424242"/>
-  <circle cx="230" cy="150" r="20" fill="#424242"/>
-</svg>
