@@ -548,6 +548,9 @@ const getCarProductColors = async (req, res) => {
 // Araç ilanlarını getir (mobile API için)
 const getCarListings = async (req, res) => {
   try {
+    const requestStartTime = Date.now();
+    console.log('🚗 [Backend] getCarListings başladı');
+    
     const { 
       page = 1, 
       limit = 20,
@@ -561,6 +564,8 @@ const getCarListings = async (req, res) => {
       engine_size,
       import_status
     } = req.query;
+    
+    console.log('🚗 [Backend] Query params:', { page, limit, brand, city, min_price, max_price });
     
     // Sayfalama hesaplamaları
     const offset = (page - 1) * limit;
@@ -695,6 +700,20 @@ const getCarListings = async (req, res) => {
     const countResult = await db.query(countQuery, countParams);
     const total = parseInt(countResult.rows[0].total);
     
+    const requestEndTime = Date.now();
+    const requestDuration = requestEndTime - requestStartTime;
+    
+    console.log(`⏱️ [Backend] getCarListings tamamlandı: ${requestDuration}ms`);
+    console.log(`📊 [Backend] ${result.rows.length} ilan döndürüldü (toplam: ${total})`);
+    
+    // İlk 3 ilanın resim URL'lerini logla
+    result.rows.slice(0, 3).forEach((listing, index) => {
+      console.log(`🖼️ [Backend] İlan ${index + 1} (ID: ${listing.id}):`, {
+        main_image: listing.main_image,
+        images_count: listing.images ? JSON.parse(listing.images).length : 0
+      });
+    });
+    
     res.json({
       success: true,
       data: {
@@ -709,7 +728,7 @@ const getCarListings = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Araç ilanları getirirken hata:', error);
+    console.error('❌ [Backend] Araç ilanları getirirken hata:', error);
     res.status(500).json({
       success: false,
       message: 'Araç ilanları getirilemedi'
