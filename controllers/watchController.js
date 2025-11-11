@@ -132,6 +132,7 @@ const getWatchProductsByBrand = async (req, res) => {
 const getWatchProductDetails = async (req, res) => {
   try {
     const { productId } = req.params;
+    const { gender } = req.query; // Cinsiyet filtresi için query parametresi
     
     // Ürün temel bilgileri
     const productResult = await db.query(`
@@ -164,6 +165,16 @@ const getWatchProductDetails = async (req, res) => {
       try {
         const parsedColors = JSON.parse(product.colors);
         colorsWithImages = parsedColors || [];
+        
+        // Eğer gender parametresi varsa, renkleri filtrele
+        if (gender && ['male', 'female', 'unisex'].includes(gender)) {
+          colorsWithImages = colorsWithImages.filter(color => {
+            // Unisex renkler her zaman gösterilir
+            if (color.gender === 'unisex') return true;
+            // Seçilen cinsiyete uygun renkler gösterilir
+            return color.gender === gender;
+          });
+        }
       } catch (error) {
         console.error('Renk verisi parse edilemedi:', error);
         colorsWithImages = [];
@@ -325,6 +336,9 @@ const searchWatches = async (req, res) => {
 const getProductColors = async (req, res) => {
   try {
     const { productId } = req.params;
+    const { gender } = req.query; // Cinsiyet filtresi için query parametresi
+    
+    console.log('🎨 [Backend] getProductColors çağrıldı - productId:', productId, 'gender:', gender);
     
     const result = await db.query(`
       SELECT colors
@@ -340,6 +354,8 @@ const getProductColors = async (req, res) => {
     }
 
     const product = result.rows[0];
+    console.log('🎨 [Backend] Veritabanından gelen colors:', product.colors);
+    
     let colors = [];
     
     try {
@@ -348,17 +364,45 @@ const getProductColors = async (req, res) => {
       if (typeof colors === 'string') {
         colors = JSON.parse(colors);
       }
+      
+      console.log('🎨 [Backend] Parse edilmiş renkler:', colors);
+      
+      // Eğer gender parametresi varsa, renkleri filtrele
+      if (gender && ['kadin', 'erkek', 'male', 'female', 'unisex'].includes(gender.toLowerCase())) {
+        // Türkçe-İngilizce dönüşümü
+        const genderMap = {
+          'kadin': 'female',
+          'erkek': 'male',
+          'male': 'male',
+          'female': 'female',
+          'unisex': 'unisex'
+        };
+        const mappedGender = genderMap[gender.toLowerCase()];
+        
+        console.log('🎨 [Backend] Filtreleme yapılıyor - mappedGender:', mappedGender);
+        
+        colors = colors.filter(color => {
+          // Unisex renkler her zaman gösterilir
+          if (color.gender === 'unisex') return true;
+          // Seçilen cinsiyete uygun renkler gösterilir
+          return color.gender === mappedGender;
+        });
+        
+        console.log('🎨 [Backend] Filtrelenmiş renkler:', colors);
+      }
     } catch (parseError) {
-      console.error('Renk verisi parse edilemedi:', parseError);
+      console.error('❌ [Backend] Renk verisi parse edilemedi:', parseError);
       colors = [];
     }
+
+    console.log('🎨 [Backend] Gönderilen yanıt:', { success: true, colors });
 
     res.json({
       success: true,
       colors: colors
     });
   } catch (error) {
-    console.error('Ürün renkleri getirilirken hata:', error);
+    console.error('❌ [Backend] Ürün renkleri getirilirken hata:', error);
     res.status(500).json({
       success: false,
       message: 'Ürün renkleri getirilemedi'

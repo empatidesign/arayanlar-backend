@@ -38,14 +38,27 @@ const requireAdminDev = async (req, res, next) => {
 // Saat modeli için multer storage
 const watchModelStorage = multer.diskStorage({
   destination: function (req, file, cb) {
-    const uploadPath = path.join(__dirname, '..', '..', 'uploads', 'watch-models');
+    let uploadPath;
+    
+    // Color images için ayrı klasör
+    if (file.fieldname.startsWith('color_image_')) {
+      uploadPath = path.join(__dirname, '..', '..', 'uploads', 'watch-models', 'colors');
+    } else {
+      uploadPath = path.join(__dirname, '..', '..', 'uploads', 'watch-models');
+    }
+    
     if (!fs.existsSync(uploadPath)) {
       fs.mkdirSync(uploadPath, { recursive: true });
     }
     cb(null, uploadPath);
   },
   filename: function (req, file, cb) {
-    cb(null, Date.now() + '-' + Math.round(Math.random() * 1E9) + path.extname(file.originalname));
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    if (file.fieldname.startsWith('color_image_')) {
+      cb(null, 'color-' + uniqueSuffix + path.extname(file.originalname));
+    } else {
+      cb(null, 'model-' + uniqueSuffix + path.extname(file.originalname));
+    }
   }
 });
 
@@ -146,9 +159,13 @@ const createWatchModel = async (req, res) => {
       });
     }
 
+    console.log('🔧 [CreateModel] Request body:', req.body);
+    console.log('🔧 [CreateModel] Request files:', req.files);
+
     const { name, brand_id, colors, model, specifications, description } = req.body;
     
     if (!name || !brand_id) {
+      console.log('❌ [CreateModel] Eksik alanlar - name:', name, 'brand_id:', brand_id);
       return res.status(400).json({
         success: false,
         message: 'Model adı ve marka ID gerekli'
@@ -177,24 +194,55 @@ const createWatchModel = async (req, res) => {
     let colorImages = [];
     if (colors) {
       try {
+        console.log('🎨 [CreateModel] Colors raw:', colors);
         const parsedColors = typeof colors === 'string' ? JSON.parse(colors) : colors;
+        console.log('🎨 [CreateModel] Colors parsed:', parsedColors);
+        
         if (Array.isArray(parsedColors)) {
           colorImages = parsedColors.map((color, index) => {
             let colorImageUrl = null;
-            if (req.files && req.files.length > 0) {
-              const colorImageFile = req.files.find(file => file.fieldname === `color_image_${index}`);
-              if (colorImageFile) {
-                colorImageUrl = `/uploads/watch-models/${colorImageFile.filename}`;
+            
+            console.log(`🎨 [CreateModel] Processing color ${index}:`, color);
+            
+            // Eğer color.image bir key ise (örn: "color_image_0"), dosyayı bul
+            if (color.image && typeof color.image === 'string' && color.image.startsWith('color_image_')) {
+              console.log(`🎨 [CreateModel] Looking for uploaded file with key: ${color.image}`);
+              
+              if (req.files && req.files.length > 0) {
+                const colorImageFile = req.files.find(file => file.fieldname === color.image);
+                if (colorImageFile) {
+                  colorImageUrl = `/uploads/watch-models/colors/${colorImageFile.filename}`;
+                  console.log(`✅ [CreateModel] Color image uploaded: ${colorImageUrl}`);
+                } else {
+                  console.log(`⚠️ [CreateModel] No file found for key: ${color.image}`);
+                }
               }
             }
-            return {
-              ...color,
+            // Eğer color.image zaten bir yol ise (örn: "/uploads/..."), onu koru
+            else if (color.image && typeof color.image === 'string' && color.image.startsWith('/uploads/')) {
+              colorImageUrl = color.image;
+              console.log(`🎨 [CreateModel] Using existing image path: ${colorImageUrl}`);
+            }
+            
+            const processedColor = {
+              name: color.name,
+              hex: color.hex,
+              gender: color.gender || 'unisex',
               image: colorImageUrl
             };
+            
+            console.log(`🎨 [CreateModel] Processed color ${index}:`, processedColor);
+            return processedColor;
           });
         }
+        
+        console.log('🎨 [CreateModel] Final colorImages:', colorImages);
       } catch (error) {
-        console.error('Renk verisi parse hatası:', error);
+        console.error('❌ [CreateModel] Renk verisi parse hatası:', error);
+        return res.status(400).json({
+          success: false,
+          message: 'Renk verisi işlenirken hata oluştu: ' + error.message
+        });
       }
     }
 
@@ -279,22 +327,48 @@ const updateWatchModel = async (req, res) => {
     let colorImages = existingModel.rows[0].colors || [];
     if (colors) {
       try {
+        console.log('🎨 [UpdateModel] Colors raw:', colors);
         const parsedColors = typeof colors === 'string' ? JSON.parse(colors) : colors;
+        console.log('🎨 [UpdateModel] Colors parsed:', parsedColors);
+        
         if (Array.isArray(parsedColors)) {
           colorImages = parsedColors.map((color, index) => {
-            let colorImageUrl = color.image; // Mevcut resmi koru
-            const colorImageFile = req.files.find(file => file.fieldname === `color_image_${index}`);
-            if (colorImageFile) {
-              colorImageUrl = `/uploads/watch-models/${colorImageFile.filename}`;
+            let colorImageUrl = null;
+            
+            console.log(`🎨 [UpdateModel] Processing color ${index}:`, color);
+            
+            // Eğer color.image bir key ise (örn: "color_image_0"), dosyayı bul
+            if (color.image && typeof color.image === 'string' && color.image.startsWith('color_image_')) {
+              console.log(`🎨 [UpdateModel] Looking for uploaded file with key: ${color.image}`);
+              
+              if (req.files && req.files.length > 0) {
+                const colorImageFile = req.files.find(file => file.fieldname === color.image);
+                if (colorImageFile) {
+                  colorImageUrl = `/uploads/watch-models/colors/${colorImageFile.filename}`;
+                  console.log(`✅ [UpdateModel] Color image uploaded: ${colorImageUrl}`);
+                } else {
+                  console.log(`⚠️ [UpdateModel] No file found for key: ${color.image}`);
+                }
+              }
             }
+            // Eğer color.image zaten bir yol ise (örn: "/uploads/..."), onu koru
+            else if (color.image && typeof color.image === 'string' && color.image.startsWith('/uploads/')) {
+              colorImageUrl = color.image;
+              console.log(`🎨 [UpdateModel] Using existing image path: ${colorImageUrl}`);
+            }
+            
             return {
-              ...color,
+              name: color.name,
+              hex: color.hex,
+              gender: color.gender || 'unisex',
               image: colorImageUrl
             };
           });
         }
+        
+        console.log('🎨 [UpdateModel] Final colorImages:', colorImages);
       } catch (error) {
-        console.error('Renk verisi parse hatası:', error);
+        console.error('❌ [UpdateModel] Renk verisi parse hatası:', error);
       }
     }
 

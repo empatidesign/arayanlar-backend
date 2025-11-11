@@ -13,6 +13,7 @@ const createHousingListing = async (req, res) => {
       property_type, // 'Daire', 'Villa', etc.
       room_count,
       gross_area,
+      max_area, // Maksimum metrekare
       floor_number,
       building_age,
       is_in_site,
@@ -42,20 +43,20 @@ const createHousingListing = async (req, res) => {
       INSERT INTO housing_listings (
         user_id, title, description, price,
         province, district, property_type, room_count,
-        gross_area, floor_number, building_age, is_in_site, site_name,
+        gross_area, max_area, floor_number, building_age, is_in_site, site_name,
         heating_type, is_furnished, listing_type, main_image, package_type, package_price,
         duration_days, has_serious_buyer_badge, status
       ) VALUES (
         $1, $2, $3, $4, $5, $6, $7, $8,
-        $9, $10, $11, $12, $13, $14, $15, $16, $17, $18,
-        $19, $20, $21, $22
+        $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19,
+        $20, $21, $22, $23
       ) RETURNING *
     `;
 
     const values = [
       userId, title, description, price,
       province || 'İstanbul', district, property_type, room_count,
-      gross_area, floor_number, buildingAgeValue, is_in_site, site_name,
+      gross_area, max_area || null, floor_number, buildingAgeValue, is_in_site, site_name,
       heating_type, is_furnished, listing_type || 'satilik', main_image, package_type || 'free', package_price || 0,
       duration_days || 30, has_serious_buyer_badge || false, 'pending'
     ];
