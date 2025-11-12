@@ -554,6 +554,7 @@ const getCarListings = async (req, res) => {
     const { 
       page = 1, 
       limit = 20,
+      category_id,
       brand,
       min_price,
       max_price,
@@ -582,6 +583,12 @@ const getCarListings = async (req, res) => {
     `;
     
     const queryParams = [];
+    
+    // Kategori filtresi
+    if (category_id) {
+      query += ` AND cl.category_id = $${queryParams.length + 1}`;
+      queryParams.push(parseInt(category_id));
+    }
     
     // Marka filtresi
     if (brand) {
@@ -652,6 +659,11 @@ const getCarListings = async (req, res) => {
     const countParams = [];
     
     // Aynı filtreleri count query'sine de ekle
+    if (category_id) {
+      countQuery += ` AND cl.category_id = $${countParams.length + 1}`;
+      countParams.push(parseInt(category_id));
+    }
+    
     if (brand) {
       countQuery += ` AND LOWER(cl.brand_name) = LOWER($${countParams.length + 1})`;
       countParams.push(brand);
@@ -708,9 +720,18 @@ const getCarListings = async (req, res) => {
     
     // İlk 3 ilanın resim URL'lerini logla
     result.rows.slice(0, 3).forEach((listing, index) => {
+      let imagesCount = 0;
+      try {
+        if (listing.images) {
+          const parsedImages = typeof listing.images === 'string' ? JSON.parse(listing.images) : listing.images;
+          imagesCount = Array.isArray(parsedImages) ? parsedImages.length : 0;
+        }
+      } catch (e) {
+        console.log(`⚠️ [Backend] İlan ${listing.id} images parse hatası:`, e.message);
+      }
       console.log(`🖼️ [Backend] İlan ${index + 1} (ID: ${listing.id}):`, {
         main_image: listing.main_image,
-        images_count: listing.images ? JSON.parse(listing.images).length : 0
+        images_count: imagesCount
       });
     });
     
