@@ -7,6 +7,9 @@ node_modules/
 .env.*
 !.env.example
 
+# Firebase
+config/firebase-service-account.json
+
 # Logs
 logs/
 *.log

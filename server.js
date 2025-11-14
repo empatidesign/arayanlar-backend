@@ -64,6 +64,8 @@ app.use('/api/listing-schedule', require('./routes/listingSchedule'));
 app.use('/api/listing-limits', require('./routes/listingLimits'));
 app.use('/api/reports', require('./routes/reports'));
 app.use('/api/version', require('./routes/version'));
+app.use('/api/notifications', require('./routes/notifications'));
+app.use('/api/broadcast', require('./routes/broadcastNotifications'));
 
 // Products route'u watches route'una yönlendir
 app.use('/api/products', require('./routes/watches'));
@@ -73,6 +75,9 @@ app.use('/api/mobile', require('./routes/mobile'));
 
 // Chat için websocket bağlantıları
 const connectedUsers = new Map(); // userId -> socketId mapping
+
+// Mesaj bildirim throttling (5 dakika içinde aynı kişiden sadece 1 bildirim)
+const messageNotificationThrottle = new Map(); // `${senderId}_${receiverId}` -> timestamp
 
 io.use(async (socket, next) => {
   try {
@@ -207,6 +212,55 @@ io.on('connection', (socket) => {
           sender: savedMessage.sender_id,
           totalConnected: io.sockets.sockets.size
         });
+
+        // Push notification gönder (throttling ile)
+        try {
+          const throttleKey = `${socket.userId}_${receiverId}`;
+          const now = Date.now();
+          const lastNotificationTime = messageNotificationThrottle.get(throttleKey);
+          const THROTTLE_DURATION = 5 * 60 * 1000; // 5 dakika
+
+          // Alıcı online değilse veya son bildirimden 5 dakika geçtiyse bildirim gönder
+          const receiverSocketId = connectedUsers.get(receiverId);
+          const isReceiverOnline = receiverSocketId && io.sockets.sockets.get(receiverSocketId);
+
+          if (!isReceiverOnline && (!lastNotificationTime || (now - lastNotificationTime) > THROTTLE_DURATION)) {
+            // Gönderen kullanıcı bilgilerini al
+            const senderInfo = await db.query(
+              'SELECT name, surname FROM users WHERE id = $1',
+              [socket.userId]
+            );
+
+            if (senderInfo.rows.length > 0) {
+              const sender = senderInfo.rows[0];
+              const senderName = `${sender.name} ${sender.surname || ''}`.trim();
+
+              const notificationService = require('./services/notificationService');
+              await notificationService.sendToUser(
+                receiverId,
+                {
+                  title: `💬 ${senderName}`,
+                  body: 'Size mesaj gönderdi',
+                },
+                {
+                  type: 'new_message',
+                  senderId: socket.userId.toString(),
+                  conversationId: conversationId.toString(),
+                }
+              );
+
+              // Throttle kaydını güncelle
+              messageNotificationThrottle.set(throttleKey, now);
+              console.log('📱 Mesaj bildirimi gönderildi:', { sender: socket.userId, receiver: receiverId });
+            }
+          } else if (isReceiverOnline) {
+            console.log('📱 Alıcı online, bildirim gönderilmedi');
+          } else {
+            console.log('📱 Throttle aktif, bildirim gönderilmedi (son bildirimden', Math.round((now - lastNotificationTime) / 1000), 'saniye geçti)');
+          }
+        } catch (notifError) {
+          console.error('❌ Mesaj bildirimi gönderilemedi:', notifError);
+        }
       }
       
     } catch (error) {
@@ -271,6 +325,14 @@ const startServer = async () => {
   try {
     await db.testConnection();
     await db.createTables();
+    
+    // Firebase'i başlat
+    try {
+      const { initializeFirebase } = require('./config/firebase');
+      initializeFirebase();
+    } catch (error) {
+      console.warn('⚠️ Firebase başlatılamadı (service account dosyası eksik olabilir):', error.message);
+    }
     
     // Listing limit scheduler'ını başlat
     await listingLimitScheduler.start();

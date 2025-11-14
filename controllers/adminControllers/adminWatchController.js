@@ -1046,7 +1046,10 @@ const approveWatchListing = async (req, res) => {
     const { id } = req.params;
 
     // Mevcut durumu kontrol et
-    const currentListing = await db.query('SELECT status FROM watch_listings WHERE id = $1', [id]);
+    const currentListing = await db.query(
+      'SELECT status, user_id, title FROM watch_listings WHERE id = $1', 
+      [id]
+    );
     
     if (currentListing.rows.length === 0) {
       return res.status(404).json({
@@ -1055,7 +1058,7 @@ const approveWatchListing = async (req, res) => {
       });
     }
 
-    const currentStatus = currentListing.rows[0].status;
+    const { status: currentStatus, user_id, title } = currentListing.rows[0];
 
     // İlanı onayla ve süreyi yeniden hesapla
     const result = await db.query(`
@@ -1071,6 +1074,27 @@ const approveWatchListing = async (req, res) => {
     const message = currentStatus === 'rejected' 
       ? 'Saat ilanı başarıyla yeniden onaylandı ve süre başlatıldı'
       : 'Saat ilanı başarıyla onaylandı ve süre başlatıldı';
+
+    // Bildirim gönder
+    try {
+      console.log('📱 Bildirim gönderiliyor:', { user_id, title });
+      const notificationService = require('../../services/notificationService');
+      const notifResult = await notificationService.sendToUser(
+        user_id,
+        {
+          title: '✅ İlanınız Onaylandı!',
+          body: `"${title}" ilanınız onaylandı ve yayına alındı.`,
+        },
+        {
+          type: 'listing_approved',
+          listingId: id.toString(),
+          category: 'watch',
+        }
+      );
+      console.log('✅ Bildirim gönderildi:', notifResult);
+    } catch (notifError) {
+      console.error('❌ Bildirim gönderilemedi:', notifError);
+    }
 
     res.json({
       success: true,
@@ -1101,7 +1125,10 @@ const rejectWatchListing = async (req, res) => {
     const { rejection_reason } = req.body;
 
     // Mevcut durumu kontrol et
-    const currentListing = await db.query('SELECT status FROM watch_listings WHERE id = $1', [id]);
+    const currentListing = await db.query(
+      'SELECT status, user_id, title FROM watch_listings WHERE id = $1', 
+      [id]
+    );
     
     if (currentListing.rows.length === 0) {
       return res.status(404).json({
@@ -1110,7 +1137,7 @@ const rejectWatchListing = async (req, res) => {
       });
     }
 
-    const currentStatus = currentListing.rows[0].status;
+    const { status: currentStatus, user_id, title } = currentListing.rows[0];
 
     const result = await db.query(`
       UPDATE watch_listings 
@@ -1125,6 +1152,27 @@ const rejectWatchListing = async (req, res) => {
     const message = currentStatus === 'approved' 
       ? 'Onaylanmış ilan başarıyla reddedildi'
       : 'Saat ilanı başarıyla reddedildi';
+
+    // Bildirim gönder
+    try {
+      console.log('📱 Bildirim gönderiliyor (red):', { user_id, title });
+      const notificationService = require('../../services/notificationService');
+      await notificationService.sendToUser(
+        user_id,
+        {
+          title: '❌ İlanınız Reddedildi',
+          body: `"${title}" ilanınız reddedildi. Sebep: ${rejection_reason}`,
+        },
+        {
+          type: 'listing_rejected',
+          listingId: id.toString(),
+          category: 'watch',
+        }
+      );
+      console.log('✅ Red bildirimi gönderildi');
+    } catch (notifError) {
+      console.error('❌ Bildirim gönderilemedi:', notifError);
+    }
 
     res.json({
       success: true,

@@ -188,17 +188,21 @@ const approveHousingListing = async (req, res) => {
 
     const { id } = req.params;
 
-    const result = await db.query(
-      'UPDATE housing_listings SET status = $1, expires_at = NOW() + INTERVAL \'7 days\', updated_at = NOW() WHERE id = $2 RETURNING *',
-      ['approved', id]
+    // İlan bilgilerini al
+    const listingInfo = await db.query(
+      'SELECT user_id, title FROM housing_listings WHERE id = $1',
+      [id]
     );
 
-    if (result.rows.length === 0) {
+    if (listingInfo.rows.length === 0) {
       return res.status(404).json({
         success: false,
         message: 'İlan bulunamadı'
       });
     }
+
+ 
+
 
     res.json({
       success: true,
@@ -230,16 +234,45 @@ const rejectHousingListing = async (req, res) => {
     const { id } = req.params;
     const { rejection_reason } = req.body;
 
+    // İlan bilgilerini al
+    const listingInfo = await db.query(
+      'SELECT user_id, title FROM housing_listings WHERE id = $1',
+      [id]
+    );
+
+    if (listingInfo.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'İlan bulunamadı'
+      });
+    }
+
+    const { user_id, title } = listingInfo.rows[0];
+
     const result = await db.query(
       'UPDATE housing_listings SET status = $1, rejection_reason = $2, updated_at = NOW() WHERE id = $3 RETURNING *',
       ['rejected', rejection_reason, id]
     );
 
-    if (result.rows.length === 0) {
-      return res.status(404).json({
-        success: false,
-        message: 'İlan bulunamadı'
-      });
+    // Bildirim gönder
+    try {
+      console.log('📱 Bildirim gönderiliyor (red):', { user_id, title });
+      const notificationService = require('../../services/notificationService');
+      await notificationService.sendToUser(
+        user_id,
+        {
+          title: '❌ İlanınız Reddedildi',
+          body: `"${title}" ilanınız reddedildi. Sebep: ${rejection_reason}`,
+        },
+        {
+          type: 'listing_rejected',
+          listingId: id.toString(),
+          category: 'housing',
+        }
+      );
+      console.log('✅ Red bildirimi gönderildi');
+    } catch (notifError) {
+      console.error('❌ Bildirim gönderilemedi:', notifError);
     }
 
     res.json({
@@ -274,7 +307,7 @@ const cancelHousingListing = async (req, res) => {
 
     // Önce ilanın onaylı olup olmadığını kontrol et
     const checkResult = await db.query(
-      'SELECT status FROM housing_listings WHERE id = $1',
+      'SELECT status, user_id, title FROM housing_listings WHERE id = $1',
       [id]
     );
 
@@ -292,10 +325,33 @@ const cancelHousingListing = async (req, res) => {
       });
     }
 
+    const { user_id, title } = checkResult.rows[0];
+
     const result = await db.query(
       'UPDATE housing_listings SET status = $1, rejection_reason = $2, updated_at = NOW() WHERE id = $3 RETURNING *',
       ['cancelled', cancellation_reason, id]
     );
+
+    // Bildirim gönder
+    try {
+      console.log('📱 Bildirim gönderiliyor (iptal):', { user_id, title });
+      const notificationService = require('../../services/notificationService');
+      await notificationService.sendToUser(
+        user_id,
+        {
+          title: '⚠️ İlanınız İptal Edildi',
+          body: `"${title}" ilanınız iptal edildi. Sebep: ${cancellation_reason}`,
+        },
+        {
+          type: 'listing_cancelled',
+          listingId: id.toString(),
+          category: 'housing',
+        }
+      );
+      console.log('✅ İptal bildirimi gönderildi');
+    } catch (notifError) {
+      console.error('❌ Bildirim gönderilemedi:', notifError);
+    }
 
     res.json({
       success: true,
@@ -346,10 +402,39 @@ const reapproveHousingListing = async (req, res) => {
       });
     }
 
+    // İlan bilgilerini al
+    const listingInfo = await db.query(
+      'SELECT user_id, title FROM housing_listings WHERE id = $1',
+      [id]
+    );
+
+    const { user_id, title } = listingInfo.rows[0];
+
     const result = await db.query(
       'UPDATE housing_listings SET status = $1, expires_at = NOW() + INTERVAL \'7 days\', rejection_reason = NULL, updated_at = NOW() WHERE id = $2 RETURNING *',
       ['approved', id]
     );
+
+    // Bildirim gönder
+    try {
+      console.log('📱 Bildirim gönderiliyor (reapprove):', { user_id, title });
+      const notificationService = require('../../services/notificationService');
+      await notificationService.sendToUser(
+        user_id,
+        {
+          title: '✅ İlanınız Onaylandı!',
+          body: `"${title}" ilanınız onaylandı ve yayına alındı.`,
+        },
+        {
+          type: 'listing_approved',
+          listingId: id.toString(),
+          category: 'housing',
+        }
+      );
+      console.log('✅ Bildirim gönderildi');
+    } catch (notifError) {
+      console.error('❌ Bildirim gönderilemedi:', notifError);
+    }
 
     res.json({
       success: true,

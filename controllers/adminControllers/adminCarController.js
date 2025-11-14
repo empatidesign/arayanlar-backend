@@ -543,7 +543,7 @@ const approveCarListing = async (req, res) => {
 
     // İlanın mevcut bilgilerini al
     const existingListing = await db.query(
-      'SELECT duration_days FROM cars_listings WHERE id = $1',
+      'SELECT user_id, title, duration_days FROM cars_listings WHERE id = $1',
       [id]
     );
 
@@ -554,7 +554,8 @@ const approveCarListing = async (req, res) => {
       });
     }
 
-    const durationDays = existingListing.rows[0].duration_days || 7;
+    const { user_id, title, duration_days } = existingListing.rows[0];
+    const durationDays = duration_days || 7;
 
     // İlanı onayla ve expires_at'i hesapla
     const result = await db.query(`
@@ -566,6 +567,27 @@ const approveCarListing = async (req, res) => {
       WHERE id = $1
       RETURNING *
     `, [id, durationDays]);
+
+    // Bildirim gönder
+    try {
+      console.log('📱 Bildirim gönderiliyor:', { user_id, title });
+      const notificationService = require('../../services/notificationService');
+      const notifResult = await notificationService.sendToUser(
+        user_id,
+        {
+          title: '✅ İlanınız Onaylandı!',
+          body: `"${title}" ilanınız onaylandı ve yayına alındı.`,
+        },
+        {
+          type: 'listing_approved',
+          listingId: id.toString(),
+          category: 'car',
+        }
+      );
+      console.log('✅ Bildirim gönderildi:', notifResult);
+    } catch (notifError) {
+      console.error('❌ Bildirim gönderilemedi:', notifError);
+    }
 
     res.json({
       success: true,
@@ -596,13 +618,15 @@ const rejectCarListing = async (req, res) => {
     }
 
     // İlanın mevcut olup olmadığını kontrol et
-    const existingListing = await db.query('SELECT * FROM cars_listings WHERE id = $1', [id]);
+    const existingListing = await db.query('SELECT user_id, title FROM cars_listings WHERE id = $1', [id]);
     if (existingListing.rows.length === 0) {
       return res.status(404).json({
         success: false,
         message: 'İlan bulunamadı'
       });
     }
+
+    const { user_id, title } = existingListing.rows[0];
 
     // İlanı reddet
     await db.query(`
@@ -612,6 +636,27 @@ const rejectCarListing = async (req, res) => {
           updated_at = CURRENT_TIMESTAMP 
       WHERE id = $2
     `, [rejection_reason.trim(), id]);
+
+    // Bildirim gönder
+    try {
+      console.log('📱 Bildirim gönderiliyor (red):', { user_id, title });
+      const notificationService = require('../../services/notificationService');
+      await notificationService.sendToUser(
+        user_id,
+        {
+          title: '❌ İlanınız Reddedildi',
+          body: `"${title}" ilanınız reddedildi. Sebep: ${rejection_reason.trim()}`,
+        },
+        {
+          type: 'listing_rejected',
+          listingId: id.toString(),
+          category: 'car',
+        }
+      );
+      console.log('✅ Red bildirimi gönderildi');
+    } catch (notifError) {
+      console.error('❌ Bildirim gönderilemedi:', notifError);
+    }
 
     res.json({
       success: true,
