@@ -136,6 +136,7 @@ const getHousingListings = async (req, res) => {
 
     const query = `
       SELECT hl.*, u.name as user_name, u.phone as user_phone,
+             u.profile_image_url as user_profile_image,
              d.image as district_image
       FROM housing_listings hl
       LEFT JOIN users u ON hl.user_id = u.id
