@@ -201,8 +201,34 @@ const approveHousingListing = async (req, res) => {
       });
     }
 
- 
+    const { user_id, title } = listingInfo.rows[0];
 
+    // İlanı onayla ve 7 gün süre ver
+    const result = await db.query(
+      'UPDATE housing_listings SET status = $1, expires_at = NOW() + INTERVAL \'7 days\', updated_at = NOW() WHERE id = $2 RETURNING *',
+      ['approved', id]
+    );
+
+    // Bildirim gönder
+    try {
+      console.log('📱 Bildirim gönderiliyor (onay):', { user_id, title });
+      const notificationService = require('../../services/notificationService');
+      await notificationService.sendToUser(
+        user_id,
+        {
+          title: '✅ İlanınız Onaylandı!',
+          body: `"${title}" ilanınız onaylandı ve yayına alındı.`,
+        },
+        {
+          type: 'listing_approved',
+          listingId: id.toString(),
+          category: 'housing',
+        }
+      );
+      console.log('✅ Bildirim gönderildi');
+    } catch (notifError) {
+      console.error('❌ Bildirim gönderilemedi:', notifError);
+    }
 
     res.json({
       success: true,
