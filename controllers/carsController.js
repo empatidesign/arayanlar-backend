@@ -556,6 +556,8 @@ const getCarListings = async (req, res) => {
       limit = 20,
       category_id,
       brand,
+      brand_id,
+      model_id,
       min_price,
       max_price,
       city,
@@ -590,10 +592,19 @@ const getCarListings = async (req, res) => {
       queryParams.push(parseInt(category_id));
     }
     
-    // Marka filtresi
-    if (brand) {
+    // Marka filtresi (brand_id veya brand name)
+    if (brand_id) {
+      query += ` AND cl.brand_id = $${queryParams.length + 1}`;
+      queryParams.push(parseInt(brand_id));
+    } else if (brand) {
       query += ` AND LOWER(cl.brand_name) = LOWER($${queryParams.length + 1})`;
       queryParams.push(brand);
+    }
+    
+    // Model filtresi
+    if (model_id) {
+      query += ` AND cl.product_id = $${queryParams.length + 1}`;
+      queryParams.push(parseInt(model_id));
     }
     
     // Fiyat filtreleri
@@ -664,9 +675,17 @@ const getCarListings = async (req, res) => {
       countParams.push(parseInt(category_id));
     }
     
-    if (brand) {
+    if (brand_id) {
+      countQuery += ` AND cl.brand_id = $${countParams.length + 1}`;
+      countParams.push(parseInt(brand_id));
+    } else if (brand) {
       countQuery += ` AND LOWER(cl.brand_name) = LOWER($${countParams.length + 1})`;
       countParams.push(brand);
+    }
+    
+    if (model_id) {
+      countQuery += ` AND cl.product_id = $${countParams.length + 1}`;
+      countParams.push(parseInt(model_id));
     }
     
     if (min_price) {

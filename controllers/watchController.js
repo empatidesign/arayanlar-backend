@@ -510,6 +510,8 @@ const getMobileListings = async (req, res) => {
       page = 1, 
       limit = 20,
       brand,
+      brand_id,
+      product_id,
       min_price,
       max_price,
       city,
@@ -518,6 +520,10 @@ const getMobileListings = async (req, res) => {
       box,
       certificate
     } = req.query;
+    
+    console.log('⌚ [Backend] getMobileListings called with params:', { 
+      category_id, brand, brand_id, product_id, page, limit 
+    });
     
     // Sayfalama hesaplamaları
     const offset = (page - 1) * limit;
@@ -546,10 +552,22 @@ const getMobileListings = async (req, res) => {
       queryParams.push(category_id);
     }
     
-    // Marka filtresi
-    if (brand) {
+    // Marka filtresi (brand_id veya brand name)
+    if (brand_id) {
+      console.log('⌚ [Backend] Adding brand_id filter:', brand_id);
+      query += ` AND wl.brand_id = $${queryParams.length + 1}`;
+      queryParams.push(parseInt(brand_id));
+    } else if (brand) {
+      console.log('⌚ [Backend] Adding brand name filter:', brand);
       query += ` AND LOWER(wb.name) = LOWER($${queryParams.length + 1})`;
       queryParams.push(brand);
+    }
+    
+    // Ürün filtresi
+    if (product_id) {
+      console.log('⌚ [Backend] Adding product_id filter:', product_id);
+      query += ` AND wl.product_id = $${queryParams.length + 1}`;
+      queryParams.push(parseInt(product_id));
     }
     
     // Fiyat filtreleri
@@ -605,7 +623,12 @@ const getMobileListings = async (req, res) => {
     query += ` ORDER BY wl.created_at DESC LIMIT $${queryParams.length + 1} OFFSET $${queryParams.length + 2}`;
     queryParams.push(limit, offset);
     
+    console.log('⌚ [Backend] Final query params:', queryParams);
+    console.log('⌚ [Backend] Executing query...');
+    
     const result = await db.query(query, queryParams);
+    
+    console.log(`⌚ [Backend] Query returned ${result.rows.length} listings`);
     
     // Toplam kayıt sayısını al
     let countQuery = `
@@ -624,9 +647,17 @@ const getMobileListings = async (req, res) => {
       countParams.push(category_id);
     }
     
-    if (brand) {
+    if (brand_id) {
+      countQuery += ` AND wl.brand_id = $${countParams.length + 1}`;
+      countParams.push(parseInt(brand_id));
+    } else if (brand) {
       countQuery += ` AND LOWER(wb.name) = LOWER($${countParams.length + 1})`;
       countParams.push(brand);
+    }
+    
+    if (product_id) {
+      countQuery += ` AND wl.product_id = $${countParams.length + 1}`;
+      countParams.push(parseInt(product_id));
     }
     
     if (min_price) {
