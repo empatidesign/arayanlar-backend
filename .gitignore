@@ -9,6 +9,7 @@ node_modules/
 
 # Firebase
 config/firebase-service-account.json
+config/firebase-services-account.json
 
 # Logs
 logs/
