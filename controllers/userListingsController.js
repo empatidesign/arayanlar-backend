@@ -4,6 +4,7 @@ const db = require('../services/database');
 const getUserListings = async (req, res) => {
   try {
     const userId = req.user.id;
+    console.log('getUserListings çağrıldı - userId:', userId, 'type:', typeof userId);
     const { page = 1, limit = 10 } = req.query;
     const offset = (page - 1) * limit;
 
@@ -101,6 +102,12 @@ const getUserListings = async (req, res) => {
     `;
 
     const result = await db.query(combinedQuery, [userId, limit, offset]);
+    
+    console.log('getUserListings sonuç:', {
+      userId,
+      totalRows: result.rows.length,
+      listings: result.rows.map(r => ({ id: r.id, title: r.title, type: r.listing_type }))
+    });
 
     // Toplam ilan sayısını getir (soft delete edilmemiş)
     const countQuery = `
@@ -425,6 +432,7 @@ const deleteListing = async (req, res) => {
   try {
     const userId = req.user.id;
     const { listingId } = req.params;
+    const { listing_type } = req.query; // Query parametresinden listing_type al
 
     if (!listingId) {
       return res.status(400).json({
@@ -433,44 +441,74 @@ const deleteListing = async (req, res) => {
       });
     }
 
+    console.log('deleteListing çağrıldı:', { listingId, listing_type, userId });
+
     // İlanın tipini ve sahibini kontrol et
     let listing = null;
-    let listingType = null;
+    let listingType = listing_type; // Frontend'den gelen tipi kullan
 
-    // Watch ilanını kontrol et (sadece silinmemiş ilanlar)
-    const watchResult = await db.query(
-      'SELECT id, user_id, status, deleted_at FROM watch_listings WHERE id = $1 AND deleted_at IS NULL',
-      [listingId]
-    );
-
-    if (watchResult.rows.length > 0) {
-      listing = watchResult.rows[0];
-      listingType = 'watch';
-    }
-
-    // Car ilanını kontrol et (sadece silinmemiş ilanlar)
-    if (!listing) {
+    // Eğer listing_type belirtilmişse sadece o tabloya bak
+    if (listingType === 'watch') {
+      const watchResult = await db.query(
+        'SELECT id, user_id, status, deleted_at FROM watch_listings WHERE id = $1 AND deleted_at IS NULL',
+        [listingId]
+      );
+      if (watchResult.rows.length > 0) {
+        listing = watchResult.rows[0];
+      }
+    } else if (listingType === 'car') {
       const carResult = await db.query(
         'SELECT id, user_id, status, deleted_at FROM cars_listings WHERE id = $1 AND deleted_at IS NULL',
         [listingId]
       );
-
       if (carResult.rows.length > 0) {
         listing = carResult.rows[0];
-        listingType = 'car';
       }
-    }
-
-    // Housing ilanını kontrol et (sadece silinmemiş ilanlar)
-    if (!listing) {
+    } else if (listingType === 'housing') {
       const housingResult = await db.query(
         'SELECT id, user_id, status, deleted_at FROM housing_listings WHERE id = $1 AND deleted_at IS NULL',
         [listingId]
       );
-
       if (housingResult.rows.length > 0) {
         listing = housingResult.rows[0];
-        listingType = 'housing';
+      }
+    } else {
+      // Listing type belirtilmemişse eski mantık (sırayla ara)
+      // Watch ilanını kontrol et
+      const watchResult = await db.query(
+        'SELECT id, user_id, status, deleted_at FROM watch_listings WHERE id = $1 AND deleted_at IS NULL',
+        [listingId]
+      );
+
+      if (watchResult.rows.length > 0) {
+        listing = watchResult.rows[0];
+        listingType = 'watch';
+      }
+
+      // Car ilanını kontrol et
+      if (!listing) {
+        const carResult = await db.query(
+          'SELECT id, user_id, status, deleted_at FROM cars_listings WHERE id = $1 AND deleted_at IS NULL',
+          [listingId]
+        );
+
+        if (carResult.rows.length > 0) {
+          listing = carResult.rows[0];
+          listingType = 'car';
+        }
+      }
+
+      // Housing ilanını kontrol et
+      if (!listing) {
+        const housingResult = await db.query(
+          'SELECT id, user_id, status, deleted_at FROM housing_listings WHERE id = $1 AND deleted_at IS NULL',
+          [listingId]
+        );
+
+        if (housingResult.rows.length > 0) {
+          listing = housingResult.rows[0];
+          listingType = 'housing';
+        }
       }
     }
 
@@ -481,8 +519,9 @@ const deleteListing = async (req, res) => {
       });
     }
 
-    // İlanın sahibi mi kontrol et
-    if (listing.user_id !== userId) {
+    // İlanın sahibi mi kontrol et (tip dönüşümü ile)
+    console.log('Sahiplik kontrolü:', { listingUserId: listing.user_id, requestUserId: userId, types: { listing: typeof listing.user_id, request: typeof userId } });
+    if (parseInt(listing.user_id) !== parseInt(userId)) {
       return res.status(403).json({
         success: false,
         message: 'Bu ilanı silme yetkiniz yok'

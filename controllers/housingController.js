@@ -276,7 +276,8 @@ const deleteHousingListing = async (req, res) => {
       });
     }
 
-    if (ownerCheck.rows[0].user_id !== userId) {
+    // Tip dönüşümü ile karşılaştır
+    if (parseInt(ownerCheck.rows[0].user_id) !== parseInt(userId)) {
       return res.status(403).json({
         success: false,
         message: 'Bu ilanı silme yetkiniz yok'
