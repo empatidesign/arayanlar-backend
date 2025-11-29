@@ -449,6 +449,11 @@ const getAllCarListingsForAdmin = async (req, res) => {
     let query = `
       SELECT 
         cl.*,
+        cl.deleted_at as deleted_at,
+        CASE 
+          WHEN cl.deleted_at IS NOT NULL THEN 'deleted'
+          ELSE cl.status
+        END as display_status,
         u.name as user_name,
         u.surname as user_surname,
         u.email as user_email,

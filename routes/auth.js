@@ -19,6 +19,9 @@ router.put('/profile', authenticateToken, authController.updateProfile);
 
 router.put('/profile/image', authenticateToken, upload.single('profileImage'), authController.updateProfileImage);
 
+// Şifre değiştirme
+router.post('/change-password', authenticateToken, authController.changePassword);
+
 // Kullanıcı profili güncelleme (sosyal medya)
 router.put('/update-social-media', authenticateToken, authController.updateSocialMedia);
 
@@ -26,9 +29,9 @@ router.put('/update-social-media', authenticateToken, authController.updateSocia
 router.get('/user/:userId', authController.getUserProfile);
 
 // Şifre sıfırlama endpoint'leri
-router.post('/forgot-password', authController.forgotPassword);
-router.post('/verify-reset-code', authController.verifyResetCode);
-router.post('/reset-password-with-code', authController.resetPasswordWithCode);
+router.post('/forgot-password', emailVerificationLimiter, authController.forgotPassword);
+router.post('/verify-reset-code', authLimiter, authController.verifyResetCode);
+router.post('/reset-password-with-code', authLimiter, authController.resetPasswordWithCode);
 
 // Ban durumu kontrol endpoint'i
 router.get('/check-ban-status', authenticateToken, authController.checkBanStatus);

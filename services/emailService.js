@@ -24,6 +24,8 @@ class EmailService {
     
     this.verificationCodes = new Map();
     this.verifiedEmails = new Set();
+    // Şifre sıfırlama için rate limiting
+    this.passwordResetAttempts = new Map(); // { email: { count: 0, firstAttempt: timestamp } }
   }
 
   generateVerificationCode() {
@@ -169,6 +171,47 @@ class EmailService {
   clearVerificationCode(email) {
     this.verificationCodes.delete(email);
     this.verifiedEmails.delete(email);
+  }
+
+  // Şifre sıfırlama rate limiting kontrolü
+  checkPasswordResetRateLimit(email) {
+    const now = Date.now();
+    const attemptData = this.passwordResetAttempts.get(email);
+    
+    if (!attemptData) {
+      // İlk deneme
+      this.passwordResetAttempts.set(email, {
+        count: 1,
+        firstAttempt: now
+      });
+      return { allowed: true, remainingAttempts: 2 };
+    }
+    
+    // 10 dakika geçtiyse sıfırla
+    if (now - attemptData.firstAttempt > 10 * 60 * 1000) {
+      this.passwordResetAttempts.set(email, {
+        count: 1,
+        firstAttempt: now
+      });
+      return { allowed: true, remainingAttempts: 2 };
+    }
+    
+    // 3 deneme hakkı kontrolü
+    if (attemptData.count >= 3) {
+      const waitTime = Math.ceil((10 * 60 * 1000 - (now - attemptData.firstAttempt)) / 60000); // dakika cinsinden
+      return { 
+        allowed: false, 
+        remainingAttempts: 0,
+        waitTime: waitTime
+      };
+    }
+    
+    // Deneme sayısını artır
+    attemptData.count++;
+    return { 
+      allowed: true, 
+      remainingAttempts: 3 - attemptData.count 
+    };
   }
 
   // Şifre sıfırlama için 6 haneli doğrulama kodu gönderme

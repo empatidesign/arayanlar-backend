@@ -10,7 +10,8 @@ const createHousingListing = async (req, res) => {
       price,
       province,
       district,
-      property_type, // 'Daire', 'Villa', etc.
+      property_type, // 'Daire', 'Villa', 'DÜKKAN', 'OFİS', etc.
+      commercial_type, // Ticari ilan tipi (DÜKKAN, OFİS, FABRİKA, DEPO, ATÖLYE, İMALATHANE)
       room_count,
       gross_area,
       max_area, // Maksimum metrekare
@@ -25,37 +26,55 @@ const createHousingListing = async (req, res) => {
       package_type,
       package_price,
       duration_days,
-      has_serious_buyer_badge
+      has_serious_buyer_badge,
+      is_commercial // Ticari ilan mı?
     } = req.body;
 
     // building_age değerini direkt string olarak sakla
     const buildingAgeValue = building_age || null;
 
     // Zorunlu alanları kontrol et
-    if (!title || !price || !property_type || !room_count || !gross_area) {
+    // Ticari ilanlar için room_count zorunlu değil
+    if (!title || !price || !property_type || !gross_area) {
       return res.status(400).json({
         success: false,
-        message: 'Başlık, fiyat, emlak tipi, oda sayısı ve metrekare alanları zorunludur'
+        message: 'Başlık, fiyat, emlak tipi ve metrekare alanları zorunludur'
+      });
+    }
+
+    // Fiyat kontrolü - 1 trilyonun altında olmalı
+    if (price >= 1000000000000) {
+      return res.status(400).json({
+        success: false,
+        message: 'Fiyat 1 trilyonun altında olmalıdır'
+      });
+    }
+    
+    // Konut ilanları için room_count zorunlu
+    if (!is_commercial && !room_count) {
+      return res.status(400).json({
+        success: false,
+        message: 'Konut ilanları için oda sayısı zorunludur'
       });
     }
 
     const query = `
       INSERT INTO housing_listings (
         user_id, title, description, price,
-        province, district, property_type, room_count,
+        province, district, property_type, commercial_type, room_count,
         gross_area, max_area, floor_number, building_age, is_in_site, site_name,
         heating_type, is_furnished, listing_type, main_image, package_type, package_price,
         duration_days, has_serious_buyer_badge, status
       ) VALUES (
-        $1, $2, $3, $4, $5, $6, $7, $8,
-        $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19,
-        $20, $21, $22, $23
+        $1, $2, $3, $4, $5, $6, $7, $8, $9,
+        $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20,
+        $21, $22, $23, $24
       ) RETURNING *
     `;
 
     const values = [
       userId, title, description, price,
-      province || 'İstanbul', district, property_type, room_count,
+      province || 'İstanbul', district, property_type, commercial_type || null, room_count || null,
       gross_area, max_area || null, floor_number, buildingAgeValue, is_in_site, site_name,
       heating_type, is_furnished, listing_type || 'satilik', main_image, package_type || 'free', package_price || 0,
       duration_days || 30, has_serious_buyer_badge || false, 'pending'
@@ -92,7 +111,8 @@ const getHousingListings = async (req, res) => {
       property_type,
       min_price,
       max_price,
-      room_count
+      room_count,
+      is_commercial
     } = req.query;
 
     const offset = (page - 1) * limit;
@@ -130,6 +150,15 @@ const getHousingListings = async (req, res) => {
       whereConditions.push(`hl.room_count = $${paramIndex}`);
       queryParams.push(room_count);
       paramIndex++;
+    }
+
+    // Ticari/Konut filtresi
+    if (is_commercial === 'true') {
+      // Ticari ilanlar: commercial_type dolu olanlar
+      whereConditions.push(`hl.commercial_type IS NOT NULL`);
+    } else if (is_commercial === 'false') {
+      // Konut ilanları: commercial_type boş olanlar
+      whereConditions.push(`hl.commercial_type IS NULL`);
     }
 
     const whereClause = whereConditions.length > 0 ? `WHERE ${whereConditions.join(' AND ')}` : '';

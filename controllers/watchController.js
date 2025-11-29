@@ -450,6 +450,14 @@ const createMobileListing = async (req, res) => {
       });
     }
 
+    // Fiyat kontrolü - 1 trilyonun altında olmalı
+    if (price >= 1000000000000) {
+      return res.status(400).json({
+        success: false,
+        message: 'Fiyat 1 trilyonun altında olmalıdır'
+      });
+    }
+
     // İlan sona erme tarihini hesapla
     const expiresAt = new Date();
     expiresAt.setDate(expiresAt.getDate() + duration_days);

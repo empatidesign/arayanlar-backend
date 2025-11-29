@@ -3,6 +3,8 @@ const emailService = require('../services/emailService');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
+const db = require('../services/database');
+const bcrypt = require('bcrypt');
 
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
@@ -604,6 +606,16 @@ class AuthController {
         });
       }
 
+      // Rate limiting kontrolü - 1 saat içinde en fazla 3 kez
+      const rateLimitCheck = emailService.checkPasswordResetRateLimit(email);
+      if (!rateLimitCheck.allowed) {
+        return res.status(429).json({
+          success: false,
+          message: `Çok fazla deneme yaptınız. Lütfen daha sonra tekrar deneyin.`,
+          waitTime: rateLimitCheck.waitTime
+        });
+      }
+
       // Önce kullanıcının var olup olmadığını kontrol et
       const user = await userService.findUserByEmail(email);
       
@@ -630,7 +642,8 @@ class AuthController {
 
         res.json({
           success: true,
-          message: 'Şifre sıfırlama kodu e-posta adresinize gönderildi'
+          message: 'Şifre sıfırlama kodu e-posta adresinize gönderildi',
+          remainingAttempts: rateLimitCheck.remainingAttempts
         });
       } catch (error) {
         throw error;
@@ -691,7 +704,10 @@ class AuthController {
         });
       }
 
-      const codeData = await userService.verifyPasswordResetCode(email, verificationCode);
+      const normalizedEmail = email.toLowerCase().trim();
+      const normalizedCode = verificationCode.toString().trim();
+
+      const codeData = await userService.verifyPasswordResetCode(normalizedEmail, normalizedCode);
       
       if (!codeData) {
         return res.status(400).json({
@@ -739,7 +755,10 @@ class AuthController {
         });
       }
 
-      const result = await userService.resetPasswordWithCode(email, verificationCode, newPassword);
+      const normalizedEmail = email.toLowerCase().trim();
+      const normalizedCode = verificationCode.toString().trim();
+
+      const result = await userService.resetPasswordWithCode(normalizedEmail, normalizedCode, newPassword);
       
       res.json({
         success: true,
@@ -765,6 +784,71 @@ class AuthController {
       res.status(500).json({
         success: false,
         message: 'Sunucu hatası'
+      });
+    }
+  }
+
+  async changePassword(req, res) {
+    try {
+      const userId = req.user.id;
+      const { currentPassword, newPassword } = req.body;
+
+      if (!currentPassword || !newPassword) {
+        return res.status(400).json({
+          success: false,
+          message: 'Mevcut şifre ve yeni şifre gereklidir'
+        });
+      }
+
+      if (newPassword.length < 6) {
+        return res.status(400).json({
+          success: false,
+          message: 'Yeni şifre en az 6 karakter olmalıdır'
+        });
+      }
+
+      // Kullanıcıyı getir
+      const userResult = await db.query(
+        'SELECT password_hash FROM users WHERE id = $1',
+        [userId]
+      );
+
+      if (userResult.rows.length === 0) {
+        return res.status(404).json({
+          success: false,
+          message: 'Kullanıcı bulunamadı'
+        });
+      }
+
+      const user = userResult.rows[0];
+
+      // Mevcut şifreyi kontrol et
+      const isPasswordValid = await bcrypt.compare(currentPassword, user.password_hash);
+      if (!isPasswordValid) {
+        return res.status(401).json({
+          success: false,
+          message: 'Mevcut şifre yanlış'
+        });
+      }
+
+      // Yeni şifreyi hashle
+      const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+      // Şifreyi güncelle
+      await db.query(
+        'UPDATE users SET password_hash = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2',
+        [hashedPassword, userId]
+      );
+
+      res.json({
+        success: true,
+        message: 'Şifreniz başarıyla değiştirildi'
+      });
+    } catch (error) {
+      console.error('Şifre değiştirme hatası:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Şifre değiştirilirken bir hata oluştu'
       });
     }
   }

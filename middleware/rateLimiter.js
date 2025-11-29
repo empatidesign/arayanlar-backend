@@ -22,7 +22,7 @@ const authLimiter = rateLimit({
 
 const emailVerificationLimiter = rateLimit({
   windowMs: 10 * 60 * 1000, // 10 dakika
-  max: 5, // IP başına maksimum 5 email doğrulama kodu
+  max: 3, // IP başına maksimum 3 email doğrulama kodu
   message: {
     error: 'Çok fazla doğrulama kodu talebi, lütfen 10 dakika sonra tekrar deneyin'
   },

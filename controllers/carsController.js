@@ -869,6 +869,14 @@ const createCarListing = async (req, res) => {
       });
     }
 
+    // Fiyat kontrolü - 1 trilyonun altında olmalı
+    if (price >= 1000000000000) {
+      return res.status(400).json({
+        success: false,
+        message: 'Fiyat 1 trilyonun altında olmalıdır'
+      });
+    }
+
     // Kilometre değerini sayıya çevir (string olarak gelebilir)
     const kmNumber = parseInt(km.toString().replace(/\D/g, ''), 10);
     

@@ -186,13 +186,20 @@ class UserService {
   // Şifre sıfırlama doğrulama kodu oluşturma
   async createPasswordResetCode(email) {
     try {
-      const user = await this.findUserByEmail(email);
+      const normalizedEmail = email.toLowerCase().trim();
+      const user = await this.findUserByEmail(normalizedEmail);
       if (!user) {
         throw new Error('Bu e-posta adresi ile kayıtlı kullanıcı bulunamadı');
       }
 
       // 6 haneli rastgele kod oluştur
       const verificationCode = Math.floor(100000 + Math.random() * 900000).toString();
+      
+      console.log('Creating password reset code:', {
+        userId: user.id,
+        email: normalizedEmail,
+        code: verificationCode
+      });
       
       // Kodu veritabanına kaydet (15 dakika geçerli)
       const expiresAt = new Date(Date.now() + 15 * 60 * 1000); // 15 dakika
@@ -220,17 +227,40 @@ class UserService {
   // Şifre sıfırlama doğrulama kodunu kontrol etme
   async verifyPasswordResetCode(email, verificationCode) {
     try {
+      // Email'i lowercase yap ve kodu trim et
+      const normalizedEmail = email.toLowerCase().trim();
+      const normalizedCode = verificationCode.toString().trim();
+      
+      console.log('Verifying password reset code:', {
+        email: normalizedEmail,
+        code: normalizedCode,
+        codeLength: normalizedCode.length
+      });
+      
       const query = `
         SELECT prt.*, u.id as user_id, u.email
         FROM password_reset_tokens prt
         JOIN users u ON prt.user_id = u.id
-        WHERE u.email = $1 
-          AND prt.verification_code = $2
+        WHERE LOWER(TRIM(u.email)) = $1 
+          AND TRIM(prt.verification_code) = $2
           AND prt.expires_at > NOW() 
           AND prt.used = false
       `;
       
-      const result = await db.query(query, [email, verificationCode]);
+      const result = await db.query(query, [normalizedEmail, normalizedCode]);
+      
+      if (!result.rows[0]) {
+        // Debug için mevcut kodları kontrol et
+        const debugQuery = `
+          SELECT prt.verification_code, prt.expires_at, prt.used, u.email
+          FROM password_reset_tokens prt
+          JOIN users u ON prt.user_id = u.id
+          WHERE LOWER(TRIM(u.email)) = $1
+        `;
+        const debugResult = await db.query(debugQuery, [normalizedEmail]);
+        console.log('Debug - Existing codes for email:', debugResult.rows);
+      }
+      
       return result.rows[0] || null;
     } catch (error) {
       console.error('Şifre sıfırlama kodu doğrulama hatası:', error);

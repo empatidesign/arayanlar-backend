@@ -32,7 +32,7 @@ const getUserListings = async (req, res) => {
       FROM watch_listings wl
       LEFT JOIN watch_brands wb ON wl.brand_id = wb.id
       LEFT JOIN watch_products wp ON wl.product_id = wp.id
-      WHERE wl.user_id = $1
+      WHERE wl.user_id = $1 AND wl.deleted_at IS NULL
     `;
 
     // Car ilanlarını getir
@@ -60,7 +60,7 @@ const getUserListings = async (req, res) => {
       FROM cars_listings cl
       LEFT JOIN cars_brands cb ON cl.brand_id = cb.id
       LEFT JOIN cars_products cp ON cl.product_id = cp.id
-      WHERE cl.user_id = $1
+      WHERE cl.user_id = $1 AND cl.deleted_at IS NULL
     `;
 
     // Housing ilanlarını getir
@@ -86,7 +86,7 @@ const getUserListings = async (req, res) => {
         hl.property_type as brand_name,
         hl.room_count as product_name
       FROM housing_listings hl
-      WHERE hl.user_id = $1
+      WHERE hl.user_id = $1 AND hl.deleted_at IS NULL
     `;
 
     // Tüm ilanları birleştir ve sırala
@@ -102,12 +102,12 @@ const getUserListings = async (req, res) => {
 
     const result = await db.query(combinedQuery, [userId, limit, offset]);
 
-    // Toplam ilan sayısını getir
+    // Toplam ilan sayısını getir (soft delete edilmemiş)
     const countQuery = `
       SELECT 
-        (SELECT COUNT(*) FROM watch_listings WHERE user_id = $1) +
-        (SELECT COUNT(*) FROM cars_listings WHERE user_id = $1) +
-        (SELECT COUNT(*) FROM housing_listings WHERE user_id = $1) as total_count
+        (SELECT COUNT(*) FROM watch_listings WHERE user_id = $1 AND deleted_at IS NULL) +
+        (SELECT COUNT(*) FROM cars_listings WHERE user_id = $1 AND deleted_at IS NULL) +
+        (SELECT COUNT(*) FROM housing_listings WHERE user_id = $1 AND deleted_at IS NULL) as total_count
     `;
 
     const countResult = await db.query(countQuery, [userId]);
@@ -160,11 +160,11 @@ const getUserListingsByType = async (req, res) => {
           FROM watch_listings wl
           LEFT JOIN watch_brands wb ON wl.brand_id = wb.id
           LEFT JOIN watch_products wp ON wl.product_id = wp.id
-          WHERE wl.user_id = $1
+          WHERE wl.user_id = $1 AND wl.deleted_at IS NULL
           ORDER BY wl.created_at DESC
           LIMIT $2 OFFSET $3
         `;
-        countQuery = `SELECT COUNT(*) FROM watch_listings WHERE user_id = $1`;
+        countQuery = `SELECT COUNT(*) FROM watch_listings WHERE user_id = $1 AND deleted_at IS NULL`;
         break;
 
       case 'car':
@@ -181,11 +181,11 @@ const getUserListingsByType = async (req, res) => {
           FROM cars_listings cl
           LEFT JOIN cars_brands cb ON cl.brand_id = cb.id
           LEFT JOIN cars_products cp ON cl.product_id = cp.id
-          WHERE cl.user_id = $1
+          WHERE cl.user_id = $1 AND cl.deleted_at IS NULL
           ORDER BY cl.created_at DESC
           LIMIT $2 OFFSET $3
         `;
-        countQuery = `SELECT COUNT(*) FROM cars_listings WHERE user_id = $1`;
+        countQuery = `SELECT COUNT(*) FROM cars_listings WHERE user_id = $1 AND deleted_at IS NULL`;
         break;
 
       case 'housing':
@@ -198,11 +198,11 @@ const getUserListingsByType = async (req, res) => {
               ELSE hl.status
             END as status
           FROM housing_listings hl
-          WHERE hl.user_id = $1
+          WHERE hl.user_id = $1 AND hl.deleted_at IS NULL
           ORDER BY hl.created_at DESC
           LIMIT $2 OFFSET $3
         `;
-        countQuery = `SELECT COUNT(*) FROM housing_listings WHERE user_id = $1`;
+        countQuery = `SELECT COUNT(*) FROM housing_listings WHERE user_id = $1 AND deleted_at IS NULL`;
         break;
 
       default:
@@ -420,8 +420,125 @@ const extendListingDuration = async (req, res) => {
   }
 };
 
+// İlan silme
+const deleteListing = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { listingId } = req.params;
+
+    if (!listingId) {
+      return res.status(400).json({
+        success: false,
+        message: 'İlan ID gereklidir'
+      });
+    }
+
+    // İlanın tipini ve sahibini kontrol et
+    let listing = null;
+    let listingType = null;
+
+    // Watch ilanını kontrol et (sadece silinmemiş ilanlar)
+    const watchResult = await db.query(
+      'SELECT id, user_id, status, deleted_at FROM watch_listings WHERE id = $1 AND deleted_at IS NULL',
+      [listingId]
+    );
+
+    if (watchResult.rows.length > 0) {
+      listing = watchResult.rows[0];
+      listingType = 'watch';
+    }
+
+    // Car ilanını kontrol et (sadece silinmemiş ilanlar)
+    if (!listing) {
+      const carResult = await db.query(
+        'SELECT id, user_id, status, deleted_at FROM cars_listings WHERE id = $1 AND deleted_at IS NULL',
+        [listingId]
+      );
+
+      if (carResult.rows.length > 0) {
+        listing = carResult.rows[0];
+        listingType = 'car';
+      }
+    }
+
+    // Housing ilanını kontrol et (sadece silinmemiş ilanlar)
+    if (!listing) {
+      const housingResult = await db.query(
+        'SELECT id, user_id, status, deleted_at FROM housing_listings WHERE id = $1 AND deleted_at IS NULL',
+        [listingId]
+      );
+
+      if (housingResult.rows.length > 0) {
+        listing = housingResult.rows[0];
+        listingType = 'housing';
+      }
+    }
+
+    if (!listing) {
+      return res.status(404).json({
+        success: false,
+        message: 'İlan bulunamadı veya zaten silinmiş'
+      });
+    }
+
+    // İlanın sahibi mi kontrol et
+    if (listing.user_id !== userId) {
+      return res.status(403).json({
+        success: false,
+        message: 'Bu ilanı silme yetkiniz yok'
+      });
+    }
+
+    // Sadece approved veya expired ilanlar silinebilir (pending ve rejected silinemez)
+    if (listing.status !== 'approved' && listing.status !== 'expired') {
+      return res.status(400).json({
+        success: false,
+        message: `Sadece onaylanmış veya süresi dolmuş ilanlar silinebilir. Mevcut durum: ${listing.status}`
+      });
+    }
+
+    // İlanı soft delete yap (deleted_at timestamp'ini set et)
+    let softDeleteQuery = '';
+    switch (listingType) {
+      case 'watch':
+        softDeleteQuery = 'UPDATE watch_listings SET deleted_at = NOW() WHERE id = $1 AND deleted_at IS NULL';
+        break;
+      case 'car':
+        softDeleteQuery = 'UPDATE cars_listings SET deleted_at = NOW() WHERE id = $1 AND deleted_at IS NULL';
+        break;
+      case 'housing':
+        softDeleteQuery = 'UPDATE housing_listings SET deleted_at = NOW() WHERE id = $1 AND deleted_at IS NULL';
+        break;
+    }
+
+    console.log('İlan soft delete yapılıyor:', { listingId, listingType });
+    const deleteResult = await db.query(softDeleteQuery, [listingId]);
+    console.log('Soft delete sonucu:', { rowCount: deleteResult.rowCount });
+
+    if (deleteResult.rowCount === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'İlan silinemedi - kayıt bulunamadı veya zaten silinmiş'
+      });
+    }
+
+    res.json({
+      success: true,
+      message: 'İlan başarıyla silindi',
+      deletedCount: deleteResult.rowCount
+    });
+  } catch (error) {
+    console.error('İlan silme hatası:', error);
+    res.status(500).json({
+      success: false,
+      message: 'İlan silinirken bir hata oluştu'
+    });
+  }
+};
+
 module.exports = {
   getUserListings,
   getUserListingsByType,
-  extendListingDuration
+  extendListingDuration,
+  deleteListing
 };

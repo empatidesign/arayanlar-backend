@@ -786,6 +786,11 @@ const getAllWatchListingsForAdmin = async (req, res) => {
         wl.location_city as location_city,
         wl.description as description,
         wl.images as images,
+        wl.deleted_at as deleted_at,
+        CASE 
+          WHEN wl.deleted_at IS NOT NULL THEN 'deleted'
+          ELSE wl.status
+        END as display_status,
         u.name as user_name,
         u.surname as user_surname,
         u.email as user_email,
