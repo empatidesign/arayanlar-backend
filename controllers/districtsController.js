@@ -39,14 +39,22 @@ const upload = multer({
 // Tüm ilçeleri getir
 const getDistricts = async (req, res) => {
   try {
-    const { city } = req.query;
+    const { city, region } = req.query;
     
     let query = 'SELECT * FROM districts WHERE is_active = true';
     let params = [];
+    let paramIndex = 1;
     
     if (city) {
-      query += ' AND city = $1';
+      query += ` AND city = $${paramIndex}`;
       params.push(city);
+      paramIndex++;
+    }
+    
+    if (region) {
+      query += ` AND region = $${paramIndex}`;
+      params.push(region);
+      paramIndex++;
     }
     
     query += ' ORDER BY order_index ASC NULLS LAST, name ASC';
@@ -162,10 +170,19 @@ const searchDistricts = async (req, res) => {
 // İstanbul ilçelerini getir (mobil uygulama için özel)
 const getIstanbulDistricts = async (req, res) => {
   try {
-    const result = await db.query(
-      'SELECT id, name, city, image, order_index FROM districts WHERE city = $1 AND is_active = true ORDER BY order_index ASC NULLS LAST, name ASC',
-      ['İstanbul']
-    );
+    const { region } = req.query;
+    
+    let query = 'SELECT id, name, city, image, region, order_index FROM districts WHERE city = $1 AND is_active = true';
+    let params = ['İstanbul'];
+    
+    if (region) {
+      query += ' AND region = $2';
+      params.push(region);
+    }
+    
+    query += ' ORDER BY order_index ASC NULLS LAST, name ASC';
+    
+    const result = await db.query(query, params);
     
     // Image path'lerini tam URL olarak döndür
     const districtsWithImageUrls = result.rows.map(district => ({
@@ -191,12 +208,19 @@ const getIstanbulDistricts = async (req, res) => {
 // Yeni ilçe oluştur
 const createDistrict = async (req, res) => {
   try {
-    const { name, city } = req.body;
+    const { name, city, region } = req.body;
     
     if (!name) {
       return res.status(400).json({
         success: false,
         message: 'İlçe adı gerekli'
+      });
+    }
+    
+    if (!region || !['ASYA', 'AVRUPA'].includes(region)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Geçerli bir bölge seçilmeli (ASYA veya AVRUPA)'
       });
     }
     
@@ -206,8 +230,8 @@ const createDistrict = async (req, res) => {
     }
     
     const result = await db.query(
-      'INSERT INTO districts (name, city, image) VALUES ($1, $2, $3) RETURNING *',
-      [name, city || 'İstanbul', imagePath]
+      'INSERT INTO districts (name, city, region, image) VALUES ($1, $2, $3, $4) RETURNING *',
+      [name, city || 'İstanbul', region, imagePath]
     );
     
     res.status(201).json({
@@ -237,12 +261,19 @@ const createDistrict = async (req, res) => {
 const updateDistrict = async (req, res) => {
   try {
     const { id } = req.params;
-    const { name, city } = req.body;
+    const { name, city, region } = req.body;
     
     if (!name) {
       return res.status(400).json({
         success: false,
         message: 'İlçe adı gerekli'
+      });
+    }
+    
+    if (region && !['ASYA', 'AVRUPA'].includes(region)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Geçerli bir bölge seçilmeli (ASYA veya AVRUPA)'
       });
     }
     
@@ -274,8 +305,8 @@ const updateDistrict = async (req, res) => {
     }
     
     const result = await db.query(
-      'UPDATE districts SET name = $1, city = $2, image = $3, updated_at = CURRENT_TIMESTAMP WHERE id = $4 RETURNING *',
-      [name, city || 'İstanbul', imagePath, id]
+      'UPDATE districts SET name = $1, city = $2, region = $3, image = $4, updated_at = CURRENT_TIMESTAMP WHERE id = $5 RETURNING *',
+      [name, city || 'İstanbul', region || existingDistrict.rows[0].region, imagePath, id]
     );
     
     res.json({
