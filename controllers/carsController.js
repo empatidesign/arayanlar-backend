@@ -582,6 +582,7 @@ const getCarListings = async (req, res) => {
       LEFT JOIN users u ON cl.user_id = u.id
       WHERE cl.is_active = true AND cl.status = 'approved'
         AND cl.created_at > NOW() - INTERVAL '7 days'
+        AND cl.deleted_at IS NULL
     `;
     
     const queryParams = [];
@@ -665,6 +666,7 @@ const getCarListings = async (req, res) => {
       FROM cars_listings cl
       WHERE cl.is_active = true AND cl.status = 'approved'
         AND cl.created_at > NOW() - INTERVAL '7 days'
+        AND cl.deleted_at IS NULL
     `;
     
     const countParams = [];
@@ -995,7 +997,7 @@ const getCarListingDetail = async (req, res) => {
       FROM cars_listings cl
       LEFT JOIN users u ON cl.user_id = u.id
       LEFT JOIN cars_products cp ON cl.product_id = cp.id
-      WHERE cl.id = $1 AND cl.is_active = true AND cl.status = 'approved'
+      WHERE cl.id = $1 AND cl.is_active = true AND cl.status = 'approved' AND cl.deleted_at IS NULL
     `, [id]);
 
     if (result.rows.length === 0) {

@@ -550,6 +550,7 @@ const getMobileListings = async (req, res) => {
       LEFT JOIN watch_products wp ON wl.product_id = wp.id
       WHERE wl.is_active = true AND wl.status = 'approved' 
         AND wl.created_at > NOW() - INTERVAL '7 days'
+        AND wl.deleted_at IS NULL
     `;
     
     const queryParams = [];
@@ -645,6 +646,7 @@ const getMobileListings = async (req, res) => {
       LEFT JOIN watch_brands wb ON wl.brand_id = wb.id
       WHERE wl.is_active = true AND wl.status = 'approved'
         AND wl.created_at > NOW() - INTERVAL '7 days'
+        AND wl.deleted_at IS NULL
     `;
     
     const countParams = [];
@@ -775,7 +777,7 @@ const getMobileListingById = async (req, res) => {
       FROM watch_listings wl
       LEFT JOIN users u ON wl.user_id = u.id
       LEFT JOIN watch_brands wb ON wl.brand_id = wb.id
-      WHERE wl.id = $1 AND wl.is_active = true AND wl.status = 'approved'
+      WHERE wl.id = $1 AND wl.is_active = true AND wl.status = 'approved' AND wl.deleted_at IS NULL
     `;
 
     const result = await db.query(query, [id]);

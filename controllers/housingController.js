@@ -161,6 +161,9 @@ const getHousingListings = async (req, res) => {
       whereConditions.push(`hl.commercial_type IS NULL`);
     }
 
+    // Soft delete kontrolü ekle
+    whereConditions.push(`hl.deleted_at IS NULL`);
+
     const whereClause = whereConditions.length > 0 ? `WHERE ${whereConditions.join(' AND ')}` : '';
 
     const query = `
@@ -224,7 +227,7 @@ const getHousingListingById = async (req, res) => {
       FROM housing_listings hl
       LEFT JOIN users u ON hl.user_id = u.id
       LEFT JOIN districts d ON LOWER(d.name) = LOWER(hl.district) AND d.is_active = true
-      WHERE hl.id = $1 AND hl.status = 'approved'
+      WHERE hl.id = $1 AND hl.status = 'approved' AND hl.deleted_at IS NULL
     `;
 
     const result = await db.query(query, [id]);
