@@ -36,4 +36,7 @@ router.post('/reset-password-with-code', authLimiter, authController.resetPasswo
 // Ban durumu kontrol endpoint'i
 router.get('/check-ban-status', authenticateToken, authController.checkBanStatus);
 
+// Google Sign-In endpoint'i
+router.post('/google-signin', authLimiter, authController.googleSignIn);
+
 module.exports = router;

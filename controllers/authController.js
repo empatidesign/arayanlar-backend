@@ -852,6 +852,122 @@ class AuthController {
       });
     }
   }
+
+  async googleSignIn(req, res) {
+    try {
+      const { idToken, email, name, familyName, photo } = req.body;
+
+      if (!email || !name) {
+        return res.status(400).json({
+          success: false,
+          message: 'Email ve isim zorunludur'
+        });
+      }
+
+      // Kullanıcıyı email ile ara
+      let user = await userService.findUserByEmail(email);
+
+      if (user) {
+        // Ban kontrolü
+        const banCheck = await db.query(`
+          SELECT ub.*, u.name as banned_by_name
+          FROM user_bans ub
+          LEFT JOIN users u ON ub.banned_by = u.id
+          WHERE ub.user_id = $1 
+            AND ub.is_active = TRUE 
+            AND (ub.banned_until IS NULL OR ub.banned_until > NOW())
+          ORDER BY ub.created_at DESC
+          LIMIT 1
+        `, [user.id]);
+
+        if (banCheck.rows.length > 0) {
+          const ban = banCheck.rows[0];
+          return res.status(403).json({
+            success: false,
+            message: 'Hesabınız banlanmıştır',
+            banInfo: {
+              reason: ban.reason,
+              bannedUntil: ban.banned_until,
+              bannedBy: ban.banned_by_name,
+              createdAt: ban.created_at,
+              isPermanent: ban.banned_until === null
+            }
+          });
+        }
+
+        // Profil fotoğrafını güncelle (eğer yoksa)
+        if (photo && !user.profile_image_url) {
+          await userService.updateUser(user.id, { profile_image_url: photo });
+          user.profile_image_url = photo;
+        }
+      } else {
+        // Yeni kullanıcı oluştur - Google Sign-In için özel kayıt
+        const randomPassword = Math.random().toString(36).slice(-8);
+        const saltRounds = 12;
+        const passwordHash = await bcrypt.hash(randomPassword, saltRounds);
+
+        // Benzersiz bir telefon numarası oluştur (Google Sign-In için) - max 20 karakter
+        // Format: G + timestamp son 9 hanesi + random 9 hane = 19 karakter
+        const timestamp = Date.now().toString().slice(-9);
+        const random = Math.floor(Math.random() * 1000000000).toString().padStart(9, '0');
+        const uniquePhone = `G${timestamp}${random}`;
+
+        const query = `
+          INSERT INTO users (name, surname, email, phone, password_hash, profile_image_url)
+          VALUES ($1, $2, $3, $4, $5, $6)
+          RETURNING id, name, surname, email, phone, profile_image_url, created_at
+        `;
+        
+        const values = [
+          name.trim(),
+          familyName ? familyName.trim() : '',
+          email.trim().toLowerCase(),
+          uniquePhone, // Benzersiz placeholder telefon (19 karakter)
+          passwordHash,
+          photo || null
+        ];
+        
+        const result = await db.query(query, values);
+        user = result.rows[0];
+        
+        // Telefonu boş string olarak döndür (frontend için)
+        user.phone = '';
+      }
+
+      const token = userService.generateToken(user);
+
+      res.json({
+        success: true,
+        message: user.id ? 'Giriş başarılı' : 'Kayıt ve giriş başarılı',
+        data: {
+          user: {
+            id: user.id,
+            name: user.name,
+            surname: user.surname,
+            email: user.email,
+            phone: user.phone,
+            profileImageUrl: user.profile_image_url
+          },
+          token
+        }
+      });
+
+    } catch (error) {
+      console.error('Google Sign-In error:', error);
+      
+      if (error.message && error.message.includes('zaten kullanılıyor')) {
+        return res.status(409).json({
+          success: false,
+          message: error.message
+        });
+      }
+
+      res.status(500).json({
+        success: false,
+        message: 'Google ile giriş sırasında bir hata oluştu'
+      });
+    }
+  }
 }
 
 module.exports = { 
