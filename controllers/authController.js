@@ -906,12 +906,6 @@ class AuthController {
         const saltRounds = 12;
         const passwordHash = await bcrypt.hash(randomPassword, saltRounds);
 
-        // Benzersiz bir telefon numarası oluştur (Google Sign-In için) - max 20 karakter
-        // Format: G + timestamp son 9 hanesi + random 9 hane = 19 karakter
-        const timestamp = Date.now().toString().slice(-9);
-        const random = Math.floor(Math.random() * 1000000000).toString().padStart(9, '0');
-        const uniquePhone = `G${timestamp}${random}`;
-
         const query = `
           INSERT INTO users (name, surname, email, phone, password_hash, profile_image_url)
           VALUES ($1, $2, $3, $4, $5, $6)
@@ -922,7 +916,7 @@ class AuthController {
           name.trim(),
           familyName ? familyName.trim() : '',
           email.trim().toLowerCase(),
-          uniquePhone, // Benzersiz placeholder telefon (19 karakter)
+          null, // Google'dan telefon gelmiyor - null bırak
           passwordHash,
           photo || null
         ];
@@ -931,7 +925,7 @@ class AuthController {
         user = result.rows[0];
         
         // Telefonu boş string olarak döndür (frontend için)
-        user.phone = '';
+        user.phone = user.phone || '';
       }
 
       const token = userService.generateToken(user);
