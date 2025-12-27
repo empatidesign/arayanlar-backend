@@ -438,12 +438,11 @@ const getAllCarListingsForAdmin = async (req, res) => {
     const { 
       page = 1, 
       limit = 20,
+      search,
       status,
-      brand,
-      search
+      user_id
     } = req.query;
     
-    // Sayfalama hesaplamaları
     const offset = (page - 1) * limit;
     
     let query = `
@@ -465,61 +464,65 @@ const getAllCarListingsForAdmin = async (req, res) => {
     `;
     
     const queryParams = [];
+    let paramIndex = 1;
+    
+    // Arama filtresi
+    if (search && search.trim()) {
+      query += ` AND (LOWER(cl.title) LIKE LOWER($${paramIndex}) OR LOWER(cl.description) LIKE LOWER($${paramIndex}))`;
+      queryParams.push(`%${search.trim()}%`);
+      paramIndex++;
+    }
     
     // Durum filtresi
     if (status) {
-      query += ` AND cl.status = $${queryParams.length + 1}`;
+      query += ` AND cl.status = $${paramIndex}`;
       queryParams.push(status);
+      paramIndex++;
     }
     
-    // Marka filtresi
-    if (brand) {
-      query += ` AND LOWER(cl.brand_name) LIKE LOWER($${queryParams.length + 1})`;
-      queryParams.push(`%${brand}%`);
+    // Kullanıcı filtresi
+    if (user_id) {
+      query += ` AND cl.user_id = $${paramIndex}`;
+      queryParams.push(user_id);
+      paramIndex++;
     }
     
-    // Arama filtresi
-    if (search) {
-      query += ` AND (LOWER(cl.title) LIKE LOWER($${queryParams.length + 1}) OR LOWER(cl.description) LIKE LOWER($${queryParams.length + 1}))`;
-      queryParams.push(`%${search}%`);
-      queryParams.push(`%${search}%`);
-    }
-    
-    // Sıralama ve sayfalama
-    query += ` ORDER BY cl.created_at DESC LIMIT $${queryParams.length + 1} OFFSET $${queryParams.length + 2}`;
-    queryParams.push(parseInt(limit));
-    queryParams.push(offset);
+    query += ` ORDER BY cl.created_at DESC LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;
+    queryParams.push(limit, offset);
     
     const result = await db.query(query, queryParams);
     
     // Toplam sayıyı al
     let countQuery = `
-      SELECT COUNT(*) as count
+      SELECT COUNT(*) as total
       FROM cars_listings cl
-      LEFT JOIN users u ON cl.user_id = u.id
       WHERE 1=1
     `;
     
     const countParams = [];
+    let countParamIndex = 1;
+    
+    if (search && search.trim()) {
+      countQuery += ` AND (LOWER(cl.title) LIKE LOWER($${countParamIndex}) OR LOWER(cl.description) LIKE LOWER($${countParamIndex}))`;
+      countParams.push(`%${search.trim()}%`);
+      countParamIndex++;
+    }
     
     if (status) {
-      countQuery += ` AND cl.status = $${countParams.length + 1}`;
+      countQuery += ` AND cl.status = $${countParamIndex}`;
       countParams.push(status);
+      countParamIndex++;
     }
     
-    if (brand) {
-      countQuery += ` AND LOWER(cl.brand_name) LIKE LOWER($${countParams.length + 1})`;
-      countParams.push(`%${brand}%`);
-    }
-    
-    if (search) {
-      countQuery += ` AND (LOWER(cl.title) LIKE LOWER($${countParams.length + 1}) OR LOWER(cl.description) LIKE LOWER($${countParams.length + 1}))`;
-      countParams.push(`%${search}%`);
-      countParams.push(`%${search}%`);
+    if (user_id) {
+      countQuery += ` AND cl.user_id = $${countParamIndex}`;
+      countParams.push(user_id);
+      countParamIndex++;
     }
     
     const countResult = await db.query(countQuery, countParams);
-
+    const total = parseInt(countResult.rows[0].total);
+    
     res.json({
       success: true,
       data: {
@@ -527,8 +530,8 @@ const getAllCarListingsForAdmin = async (req, res) => {
         pagination: {
           page: parseInt(page),
           limit: parseInt(limit),
-          total: parseInt(countResult.rows[0].count),
-          totalPages: Math.ceil(countResult.rows[0].count / limit)
+          total,
+          totalPages: Math.ceil(total / limit)
         }
       }
     });
@@ -536,7 +539,8 @@ const getAllCarListingsForAdmin = async (req, res) => {
     console.error('Admin araba ilanları getirilirken hata:', error);
     res.status(500).json({
       success: false,
-      message: 'Araba ilanları getirilemedi'
+      message: 'İlanlar getirilemedi',
+      error: error.message
     });
   }
 };

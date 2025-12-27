@@ -84,7 +84,7 @@ const getAllWatchModels = async (req, res) => {
       });
     }
 
-    const { brand_id, page = 1, limit = 20 } = req.query;
+    const { brand_id, page = 1, limit = 20, search } = req.query;
     const offset = (page - 1) * limit;
 
     let query = `
@@ -104,6 +104,17 @@ const getAllWatchModels = async (req, res) => {
       queryParams.push(brand_id);
     }
     
+    // Search parametresi - sadece text alanlarda arama yap
+    if (search && search.trim()) {
+      query += ` AND (
+        LOWER(wp.name) LIKE LOWER($${queryParams.length + 1}) OR
+        LOWER(wb.name) LIKE LOWER($${queryParams.length + 1}) OR
+        LOWER(COALESCE(wp.model, '')) LIKE LOWER($${queryParams.length + 1}) OR
+        LOWER(COALESCE(wp.description, '')) LIKE LOWER($${queryParams.length + 1})
+      )`;
+      queryParams.push(`%${search.trim()}%`);
+    }
+    
     query += ` ORDER BY wp.order_index ASC NULLS LAST, wb.name ASC, wp.name ASC LIMIT $${queryParams.length + 1} OFFSET $${queryParams.length + 2}`;
     queryParams.push(parseInt(limit));
     queryParams.push(offset);
@@ -111,12 +122,22 @@ const getAllWatchModels = async (req, res) => {
     const result = await db.query(query, queryParams);
 
     // Toplam sayıyı al
-    let countQuery = `SELECT COUNT(*) as total FROM watch_products wp WHERE 1=1`;
+    let countQuery = `SELECT COUNT(*) as total FROM watch_products wp LEFT JOIN watch_brands wb ON wp.brand_id = wb.id WHERE 1=1`;
     const countParams = [];
     
     if (brand_id) {
       countQuery += ` AND wp.brand_id = $${countParams.length + 1}`;
       countParams.push(brand_id);
+    }
+    
+    if (search && search.trim()) {
+      countQuery += ` AND (
+        LOWER(wp.name) LIKE LOWER($${countParams.length + 1}) OR
+        LOWER(wb.name) LIKE LOWER($${countParams.length + 1}) OR
+        LOWER(COALESCE(wp.model, '')) LIKE LOWER($${countParams.length + 1}) OR
+        LOWER(COALESCE(wp.description, '')) LIKE LOWER($${countParams.length + 1})
+      )`;
+      countParams.push(`%${search.trim()}%`);
     }
     
     const countResult = await db.query(countQuery, countParams);
@@ -771,6 +792,9 @@ const getAllWatchListingsForAdmin = async (req, res) => {
       limit = 20,
       status,
       brand,
+      model,
+      city,
+      title,
       search
     } = req.query;
     
@@ -812,16 +836,50 @@ const getAllWatchListingsForAdmin = async (req, res) => {
       queryParams.push(status);
     }
     
-    // Marka filtresi
+    // Marka filtresi (ID veya isim)
     if (brand) {
-      query += ` AND LOWER(wb.name) LIKE LOWER($${queryParams.length + 1})`;
-      queryParams.push(`%${brand}%`);
+      // Eğer sayı ise ID olarak, değilse isim olarak ara
+      if (!isNaN(brand)) {
+        query += ` AND wl.brand_id = $${queryParams.length + 1}`;
+        queryParams.push(parseInt(brand));
+      } else {
+        query += ` AND LOWER(wb.name) LIKE LOWER($${queryParams.length + 1})`;
+        queryParams.push(`%${brand}%`);
+      }
     }
     
-    // Arama filtresi
+    // Model filtresi (ID veya isim)
+    if (model) {
+      // Eğer sayı ise ID olarak, değilse isim olarak ara
+      if (!isNaN(model)) {
+        query += ` AND wl.product_id = $${queryParams.length + 1}`;
+        queryParams.push(parseInt(model));
+      } else {
+        query += ` AND LOWER(wp.name) LIKE LOWER($${queryParams.length + 1})`;
+        queryParams.push(`%${model}%`);
+      }
+    }
+    
+    // Şehir filtresi
+    if (city) {
+      query += ` AND LOWER(wl.location_city) LIKE LOWER($${queryParams.length + 1})`;
+      queryParams.push(`%${city}%`);
+    }
+    
+    // Başlık filtresi
+    if (title) {
+      query += ` AND LOWER(wl.title) LIKE LOWER($${queryParams.length + 1})`;
+      queryParams.push(`%${title}%`);
+    }
+    
+    // Genel arama filtresi (başlık, açıklama, marka, model)
     if (search) {
-      query += ` AND (LOWER(wl.title) LIKE LOWER($${queryParams.length + 1}) OR LOWER(wl.description) LIKE LOWER($${queryParams.length + 1}))`;
-      queryParams.push(`%${search}%`);
+      query += ` AND (
+        LOWER(wl.title) LIKE LOWER($${queryParams.length + 1}) OR 
+        LOWER(wl.description) LIKE LOWER($${queryParams.length + 1}) OR
+        LOWER(wb.name) LIKE LOWER($${queryParams.length + 1}) OR
+        LOWER(wp.name) LIKE LOWER($${queryParams.length + 1})
+      )`;
       queryParams.push(`%${search}%`);
     }
     
@@ -906,14 +964,48 @@ const getAllWatchListingsForAdmin = async (req, res) => {
       countParams.push(status);
     }
     
+    // Marka filtresi (ID veya isim)
     if (brand) {
-      countQuery += ` AND LOWER(wb.name) LIKE LOWER($${countParams.length + 1}`;
-      countParams.push(`%${brand}%`);
+      if (!isNaN(brand)) {
+        countQuery += ` AND wl.brand_id = $${countParams.length + 1}`;
+        countParams.push(parseInt(brand));
+      } else {
+        countQuery += ` AND LOWER(wb.name) LIKE LOWER($${countParams.length + 1})`;
+        countParams.push(`%${brand}%`);
+      }
     }
     
+    // Model filtresi (ID veya isim)
+    if (model) {
+      if (!isNaN(model)) {
+        countQuery += ` AND wl.product_id = $${countParams.length + 1}`;
+        countParams.push(parseInt(model));
+      } else {
+        countQuery += ` AND LOWER(wp.name) LIKE LOWER($${countParams.length + 1})`;
+        countParams.push(`%${model}%`);
+      }
+    }
+    
+    // Şehir filtresi
+    if (city) {
+      countQuery += ` AND LOWER(wl.location_city) LIKE LOWER($${countParams.length + 1})`;
+      countParams.push(`%${city}%`);
+    }
+    
+    // Başlık filtresi
+    if (title) {
+      countQuery += ` AND LOWER(wl.title) LIKE LOWER($${countParams.length + 1})`;
+      countParams.push(`%${title}%`);
+    }
+    
+    // Genel arama filtresi
     if (search) {
-      countQuery += ` AND (LOWER(wl.title) LIKE LOWER($${countParams.length + 1}) OR LOWER(wl.description) LIKE LOWER($${countParams.length + 1}))`;
-      countParams.push(`%${search}%`);
+      countQuery += ` AND (
+        LOWER(wl.title) LIKE LOWER($${countParams.length + 1}) OR 
+        LOWER(wl.description) LIKE LOWER($${countParams.length + 1}) OR
+        LOWER(wb.name) LIKE LOWER($${countParams.length + 1}) OR
+        LOWER(wp.name) LIKE LOWER($${countParams.length + 1})
+      )`;
       countParams.push(`%${search}%`);
     }
     
@@ -990,7 +1082,6 @@ const getPendingWatchListings = async (req, res) => {
     if (search) {
       query += ` AND (LOWER(wl.title) LIKE LOWER($${queryParams.length + 1}) OR LOWER(wl.description) LIKE LOWER($${queryParams.length + 1}))`;
       queryParams.push(`%${search}%`);
-      queryParams.push(`%${search}%`);
     }
     
     // Sıralama ve sayfalama
@@ -1011,7 +1102,6 @@ const getPendingWatchListings = async (req, res) => {
     const countParams = [];
     if (search) {
       countQuery += ` AND (LOWER(wl.title) LIKE LOWER($${countParams.length + 1}) OR LOWER(wl.description) LIKE LOWER($${countParams.length + 1}))`;
-      countParams.push(`%${search}%`);
       countParams.push(`%${search}%`);
     }
     

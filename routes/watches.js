@@ -86,12 +86,16 @@ router.delete('/models/:id', authenticateToken, requireAdmin, deleteWatchModel);
 // Admin - Saat modeli durumunu değiştir
 router.patch('/models/:id/toggle-status', authenticateToken, requireAdmin, toggleWatchModelStatus);
 
-// Products endpoint'i için brand_id query parametresi ile
+// Products endpoint'i için brand_id ve gender query parametreleri ile
 router.get('/', (req, res) => {
-  const { brand_id } = req.query;
+  const { brand_id, gender } = req.query;
   if (brand_id) {
     // brand_id parametresini brandId olarak yönlendir
     req.params.brandId = brand_id;
+    // gender parametresini de aktar
+    if (gender) {
+      req.query.gender = gender;
+    }
     return getWatchProductsByBrand(req, res);
   }
   res.status(400).json({

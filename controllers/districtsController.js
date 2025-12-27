@@ -39,7 +39,7 @@ const upload = multer({
 // Tüm ilçeleri getir
 const getDistricts = async (req, res) => {
   try {
-    const { city, region } = req.query;
+    const { city, region, search } = req.query;
     
     let query = 'SELECT * FROM districts WHERE is_active = true';
     let params = [];
@@ -54,6 +54,17 @@ const getDistricts = async (req, res) => {
     if (region) {
       query += ` AND region = $${paramIndex}`;
       params.push(region);
+      paramIndex++;
+    }
+    
+    // Search parametresi
+    if (search && search.trim()) {
+      query += ` AND (
+        LOWER(name) LIKE LOWER($${paramIndex}) OR
+        LOWER(COALESCE(region, '')) LIKE LOWER($${paramIndex}) OR
+        LOWER(COALESCE(city, '')) LIKE LOWER($${paramIndex})
+      )`;
+      params.push(`%${search.trim()}%`);
       paramIndex++;
     }
     

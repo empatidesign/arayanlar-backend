@@ -95,6 +95,9 @@ const getWatchBrands = async (req, res) => {
 const getWatchProductsByBrand = async (req, res) => {
   try {
     const { brandId } = req.params;
+    const { gender } = req.query; // Cinsiyet filtresi için query parametresi
+    
+    console.log('⌚ [Backend] getWatchProductsByBrand - brandId:', brandId, 'gender:', gender);
     
     const result = await db.query(`
       SELECT 
@@ -115,9 +118,40 @@ const getWatchProductsByBrand = async (req, res) => {
       ORDER BY order_index ASC NULLS LAST, name ASC
     `, [brandId]);
 
+    let products = result.rows;
+    
+    // Eğer gender parametresi varsa, ürünleri filtrele
+    if (gender && ['male', 'female', 'unisex'].includes(gender.toLowerCase())) {
+      console.log('⌚ [Backend] Cinsiyet filtreleme yapılıyor:', gender);
+      
+      products = products.filter(product => {
+        try {
+          let colors = product.colors || [];
+          if (typeof colors === 'string') {
+            colors = JSON.parse(colors);
+          }
+          
+          // Bu üründe seçilen cinsiyete uygun renk var mı kontrol et
+          const hasMatchingColor = colors.some(color => {
+            // Unisex renkler her zaman kabul edilir
+            if (color.gender === 'unisex') return true;
+            // Seçilen cinsiyete uygun renkler kabul edilir
+            return color.gender === gender.toLowerCase();
+          });
+          
+          return hasMatchingColor;
+        } catch (error) {
+          console.error('❌ [Backend] Renk parse hatası:', error);
+          return false;
+        }
+      });
+      
+      console.log(`⌚ [Backend] Filtreleme sonrası ${products.length} ürün kaldı`);
+    }
+
     res.json({
       success: true,
-      data: result.rows
+      data: products
     });
   } catch (error) {
     console.error('Marka ürünleri getirilirken hata:', error);

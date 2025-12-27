@@ -45,14 +45,32 @@ const getCarBrands = async (req, res) => {
 // Tüm araba modellerini listele (admin için)
 const getAllCarModels = async (req, res) => {
   try {
-  const result = await db.query(`
+    const { search } = req.query;
+    
+    let query = `
       SELECT cp.id, cp.name, cp.brand_id, cp.image_url, cp.is_active, cp.created_at, cp.updated_at,
              cp.description, cp.engine_size, cp.colors, cp.order_index,
              cb.name as brand_name
       FROM cars_products cp
       LEFT JOIN cars_brands cb ON cp.brand_id = cb.id
-      ORDER BY cp.order_index ASC NULLS LAST, cb.name ASC, cp.name ASC
-    `);
+      WHERE 1=1
+    `;
+    
+    const queryParams = [];
+    
+    // Search parametresi - text alanlarda arama yap
+    if (search && search.trim()) {
+      query += ` AND (
+        LOWER(cp.name) LIKE LOWER($${queryParams.length + 1}) OR
+        LOWER(cb.name) LIKE LOWER($${queryParams.length + 1}) OR
+        LOWER(COALESCE(cp.description, '')) LIKE LOWER($${queryParams.length + 1})
+      )`;
+      queryParams.push(`%${search.trim()}%`);
+    }
+    
+    query += ` ORDER BY cp.order_index ASC NULLS LAST, cb.name ASC, cp.name ASC`;
+    
+    const result = await db.query(query, queryParams);
 
     res.json({
       success: true,
