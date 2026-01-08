@@ -7,6 +7,7 @@ const {
   getUserConversations,
   sendMessage,
   markMessagesAsRead,
+  getUnreadCount,
   deleteConversation,
   getChatImage,
   getChatImageByToken
@@ -14,6 +15,9 @@ const {
 
 // Kullanıcının tüm konuşmalarını listele
 router.get('/conversations', authenticateToken, getUserConversations);
+
+// Toplam okunmamış mesaj sayısını getir
+router.get('/unread-count', authenticateToken, getUnreadCount);
 
 // Belirli bir konuşmanın mesajlarını getir (kullanıcı bazlı)
 router.get('/conversations/:otherUserId', authenticateToken, getConversationMessages);

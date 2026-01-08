@@ -457,6 +457,58 @@ const markMessagesAsRead = async (req, res) => {
   }
 };
 
+// Toplam okunmamış mesaj sayısını getir
+const getUnreadCount = async (req, res) => {
+  try {
+    const userId = req.user.id;
+
+    const result = await db.query(`
+      SELECT COALESCE(SUM(unread_count), 0) as total_unread
+      FROM (
+        SELECT 
+          (
+            SELECT COUNT(*) 
+            FROM messages m
+            WHERE m.conversation_id = c.id
+              AND m.sender_id != $1
+              AND m.created_at > COALESCE(my_part.last_read_at, '1970-01-01')
+              AND (my_part.deleted_at IS NULL OR m.created_at > my_part.deleted_at)
+              AND (
+                m.sender_id = $1 
+                OR (
+                  NOT EXISTS (
+                    SELECT 1 FROM blocked_users bu 
+                    WHERE bu.blocker_id = $1 AND bu.blocked_id = m.sender_id
+                    AND bu.created_at <= m.created_at
+                  )
+                  AND (m.is_blocked_message = FALSE OR m.is_blocked_message IS NULL)
+                )
+              )
+          ) as unread_count
+        FROM conversations c
+        JOIN conversation_participants my_part ON c.id = my_part.conversation_id AND my_part.user_id = $1
+        WHERE EXISTS (
+          SELECT 1 FROM messages m 
+          WHERE m.conversation_id = c.id
+        )
+      ) as conversation_counts
+    `, [userId]);
+
+    res.json({
+      success: true,
+      unreadCount: parseInt(result.rows[0].total_unread) || 0
+    });
+
+  } catch (error) {
+    console.error('Okunmamış mesaj sayısı getirme hatası:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Okunmamış mesaj sayısı getirilemedi',
+      unreadCount: 0
+    });
+  }
+};
+
 // Sohbeti kullanıcı tarafında sil
 const deleteConversation = async (req, res) => {
   try {
@@ -733,6 +785,7 @@ module.exports = {
   getUserConversations,
   sendMessage,
   markMessagesAsRead,
+  getUnreadCount,
   deleteConversation,
   getChatImage,
   getChatImageByToken
