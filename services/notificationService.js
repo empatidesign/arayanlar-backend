@@ -251,13 +251,16 @@ class NotificationService {
   // Mesaj bildirimi
   async sendMessageNotification(recipientId, sender, message) {
     const notification = {
-      title: `💬 ${sender.name}`,
-      body: message.text || 'Yeni bir mesaj gönderdi',
+      title: `💬 ${sender.name} ${sender.surname || ''}`.trim(),
+      body: message.text || 'Size mesaj gönderdi',
     };
 
     const data = {
       type: 'new_message',
       senderId: sender.id.toString(),
+      senderName: sender.name,
+      senderSurname: sender.surname || '',
+      senderImage: sender.profile_image || '',
       conversationId: message.conversationId?.toString(),
     };
 

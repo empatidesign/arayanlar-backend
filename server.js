@@ -66,6 +66,7 @@ app.use('/api/reports', require('./routes/reports'));
 app.use('/api/version', require('./routes/version'));
 app.use('/api/notifications', require('./routes/notifications'));
 app.use('/api/broadcast', require('./routes/broadcastNotifications'));
+app.use('/api/app-content', require('./routes/appContent'));
 
 // Products route'u watches route'una yönlendir
 app.use('/api/products', require('./routes/watches'));
