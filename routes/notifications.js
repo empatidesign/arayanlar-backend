@@ -48,6 +48,23 @@ router.delete('/fcm-token', authenticateToken, async (req, res) => {
   }
 });
 
+// Kullanıcının tüm FCM tokenlarını sil (logout için)
+router.delete('/fcm-token/all', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+
+    await notificationService.removeAllUserTokens(userId);
+    
+    res.json({
+      success: true,
+      message: 'All FCM tokens removed successfully',
+    });
+  } catch (error) {
+    console.error('Error removing all FCM tokens:', error);
+    res.status(500).json({ error: 'Failed to remove all FCM tokens' });
+  }
+});
+
 // Test bildirimi gönder
 router.post('/test', authenticateToken, async (req, res) => {
   try {

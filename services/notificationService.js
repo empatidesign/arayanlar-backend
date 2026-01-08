@@ -58,6 +58,25 @@ class NotificationService {
     }
   }
 
+  // Kullanıcının tüm tokenlarını sil (logout için)
+  async removeAllUserTokens(userId) {
+    try {
+      const query = `
+        UPDATE user_fcm_tokens 
+        SET is_active = false, updated_at = NOW()
+        WHERE user_id = $1
+        RETURNING *
+      `;
+      
+      const result = await db.query(query, [userId]);
+      console.log(`✅ Removed ${result.rowCount} tokens for user ${userId}`);
+      return result.rows;
+    } catch (error) {
+      console.error('Error removing all user tokens:', error);
+      throw error;
+    }
+  }
+
   // Kullanıcının aktif tokenlarını getir
   async getUserTokens(userId) {
     try {
