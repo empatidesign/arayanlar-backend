@@ -227,25 +227,20 @@ io.on('connection', (socket) => {
           if (!isReceiverOnline && (!lastNotificationTime || (now - lastNotificationTime) > THROTTLE_DURATION)) {
             // Gönderen kullanıcı bilgilerini al
             const senderInfo = await db.query(
-              'SELECT name, surname FROM users WHERE id = $1',
+              'SELECT id, name, surname, profile_image_url as profile_image FROM users WHERE id = $1',
               [socket.userId]
             );
 
             if (senderInfo.rows.length > 0) {
               const sender = senderInfo.rows[0];
-              const senderName = `${sender.name} ${sender.surname || ''}`.trim();
-
+              
               const notificationService = require('./services/notificationService');
-              await notificationService.sendToUser(
+              await notificationService.sendMessageNotification(
                 receiverId,
+                sender,
                 {
-                  title: `💬 ${senderName}`,
-                  body: 'Size mesaj gönderdi',
-                },
-                {
-                  type: 'new_message',
-                  senderId: socket.userId.toString(),
-                  conversationId: conversationId.toString(),
+                  text: messageType === 'text' ? message : 'Fotoğraf gönderdi',
+                  conversationId: conversationId
                 }
               );
 
