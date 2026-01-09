@@ -214,6 +214,22 @@ io.on('connection', (socket) => {
           totalConnected: io.sockets.sockets.size
         });
 
+        // Alıcıya unread count güncellemesi gönder (hemen, push notification'dan önce)
+        const receiverSocketId = connectedUsers.get(receiverId);
+        console.log('🔍 Receiver socket check:', { 
+          receiverId, 
+          receiverSocketId, 
+          connectedUsersSize: connectedUsers.size,
+          allConnectedUsers: Array.from(connectedUsers.keys())
+        });
+        
+        if (receiverSocketId) {
+          io.to(receiverSocketId).emit('unreadCountUpdate');
+          console.log('📊 Unread count update gönderildi:', { receiver: receiverId, socketId: receiverSocketId });
+        } else {
+          console.log('⚠️ Receiver online değil, unread count update gönderilmedi');
+        }
+
         // Push notification gönder (throttling ile)
         try {
           const throttleKey = `${socket.userId}_${receiverId}`;
