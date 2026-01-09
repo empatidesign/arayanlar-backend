@@ -1,6 +1,7 @@
 const { getMessaging, isAvailable } = require('../config/firebase');
 const firebaseLegacy = require('../config/firebase-legacy');
 const db = require('./database');
+const notificationTexts = require('../config/notificationTexts');
 
 class NotificationService {
   constructor() {
@@ -235,8 +236,8 @@ class NotificationService {
   // Yeni ilan bildirimi
   async sendNewListingNotification(listingOwnerId, listing) {
     const notification = {
-      title: '🎉 İlanınız Yayında!',
-      body: `${listing.title} ilanınız başarıyla yayınlandı.`,
+      title: notificationTexts.listing.published.title(),
+      body: notificationTexts.listing.published.body(listing.title),
     };
 
     const data = {
@@ -248,11 +249,44 @@ class NotificationService {
     return await this.sendToUser(listingOwnerId, notification, data);
   }
 
+  // İlan onaylandı bildirimi
+  async sendListingApprovedNotification(listingOwnerId, listing) {
+    const notification = {
+      title: notificationTexts.listing.approved.title(),
+      body: notificationTexts.listing.approved.body(listing.title),
+    };
+
+    const data = {
+      type: 'listing_approved',
+      listingId: listing.id.toString(),
+      category: listing.category,
+    };
+
+    return await this.sendToUser(listingOwnerId, notification, data);
+  }
+
+  // İlan reddedildi bildirimi
+  async sendListingRejectedNotification(listingOwnerId, listing, reason = null) {
+    const notification = {
+      title: notificationTexts.listing.rejected.title(),
+      body: notificationTexts.listing.rejected.body(listing.title, reason),
+    };
+
+    const data = {
+      type: 'listing_rejected',
+      listingId: listing.id.toString(),
+      category: listing.category,
+      reason: reason || '',
+    };
+
+    return await this.sendToUser(listingOwnerId, notification, data);
+  }
+
   // Mesaj bildirimi
   async sendMessageNotification(recipientId, sender, message) {
     const notification = {
-      title: `💬 ${sender.name} ${sender.surname || ''}`.trim(),
-      body: message.text || 'Size mesaj gönderdi',
+      title: notificationTexts.message.title(sender.name, sender.surname),
+      body: message.text || notificationTexts.message.body.default(),
     };
 
     const data = {
@@ -270,14 +304,46 @@ class NotificationService {
   // Favori ilan güncelleme bildirimi
   async sendFavoriteListingUpdateNotification(userId, listing) {
     const notification = {
-      title: '⭐ Favori İlanınızda Güncelleme',
-      body: `${listing.title} ilanında değişiklik yapıldı.`,
+      title: notificationTexts.favorite.updated.title(),
+      body: notificationTexts.favorite.updated.body(listing.title),
     };
 
     const data = {
       type: 'favorite_update',
       listingId: listing.id.toString(),
       category: listing.category,
+    };
+
+    return await this.sendToUser(userId, notification, data);
+  }
+
+  // Ödeme başarılı bildirimi
+  async sendPaymentSuccessNotification(userId, packageName, amount) {
+    const notification = {
+      title: notificationTexts.payment.success.title(),
+      body: notificationTexts.payment.success.body(packageName, amount),
+    };
+
+    const data = {
+      type: 'payment_success',
+      packageName: packageName,
+      amount: amount.toString(),
+    };
+
+    return await this.sendToUser(userId, notification, data);
+  }
+
+  // Abonelik sona eriyor bildirimi
+  async sendSubscriptionExpiringNotification(userId, packageName, daysLeft) {
+    const notification = {
+      title: notificationTexts.payment.subscriptionExpiring.title(),
+      body: notificationTexts.payment.subscriptionExpiring.body(packageName, daysLeft),
+    };
+
+    const data = {
+      type: 'subscription_expiring',
+      packageName: packageName,
+      daysLeft: daysLeft.toString(),
     };
 
     return await this.sendToUser(userId, notification, data);
