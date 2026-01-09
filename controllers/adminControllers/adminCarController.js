@@ -581,19 +581,15 @@ const approveCarListing = async (req, res) => {
     try {
       console.log('📱 Bildirim gönderiliyor:', { user_id, title });
       const notificationService = require('../../services/notificationService');
-      const notifResult = await notificationService.sendToUser(
+      await notificationService.sendListingApprovedNotification(
         user_id,
         {
-          title: '✅ İlanınız Onaylandı!',
-          body: `"${title}" ilanınız onaylandı ve yayına alındı.`,
-        },
-        {
-          type: 'listing_approved',
-          listingId: id.toString(),
+          id: id,
+          title: title,
           category: 'car',
         }
       );
-      console.log('✅ Bildirim gönderildi:', notifResult);
+      console.log('✅ Bildirim gönderildi');
     } catch (notifError) {
       console.error('❌ Bildirim gönderilemedi:', notifError);
     }
@@ -650,17 +646,14 @@ const rejectCarListing = async (req, res) => {
     try {
       console.log('📱 Bildirim gönderiliyor (red):', { user_id, title });
       const notificationService = require('../../services/notificationService');
-      await notificationService.sendToUser(
+      await notificationService.sendListingRejectedNotification(
         user_id,
         {
-          title: '❌ İlanınız Reddedildi',
-          body: `"${title}" ilanınız reddedildi. Sebep: ${rejection_reason.trim()}`,
-        },
-        {
-          type: 'listing_rejected',
-          listingId: id.toString(),
+          id: id,
+          title: title,
           category: 'car',
-        }
+        },
+        rejection_reason.trim()
       );
       console.log('✅ Red bildirimi gönderildi');
     } catch (notifError) {
