@@ -93,8 +93,9 @@ const checkVersion = async (req, res) => {
     let updateRequired = false;
     let forceUpdate = false;
     
-    // En son versiyon kontrolü
-    for (let i = 0; i < Math.max(currentVersionParts.length, latestVersionParts.length); i++) {
+    // En son versiyon kontrolü - tüm parçaları karşılaştır
+    const maxLength = Math.max(currentVersionParts.length, latestVersionParts.length);
+    for (let i = 0; i < maxLength; i++) {
       const current = currentVersionParts[i] || 0;
       const latest = latestVersionParts[i] || 0;
       
@@ -102,13 +103,17 @@ const checkVersion = async (req, res) => {
         updateRequired = true;
         break;
       } else if (current > latest) {
+        // Mevcut versiyon daha yeni, güncelleme gerekmez
+        updateRequired = false;
         break;
       }
+      // Eşitse bir sonraki parçaya geç
     }
     
     // Zorunlu güncelleme kontrolü
     if (versionInfo.force_update) {
-      for (let i = 0; i < Math.max(currentVersionParts.length, minimumVersionParts.length); i++) {
+      const minMaxLength = Math.max(currentVersionParts.length, minimumVersionParts.length);
+      for (let i = 0; i < minMaxLength; i++) {
         const current = currentVersionParts[i] || 0;
         const minimum = minimumVersionParts[i] || 0;
         
@@ -116,8 +121,11 @@ const checkVersion = async (req, res) => {
           forceUpdate = true;
           break;
         } else if (current > minimum) {
+          // Mevcut versiyon minimum versiyondan yeni, zorunlu güncelleme gerekmez
+          forceUpdate = false;
           break;
         }
+        // Eşitse bir sonraki parçaya geç
       }
     }
     
