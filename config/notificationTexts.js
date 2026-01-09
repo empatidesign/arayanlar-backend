@@ -28,7 +28,7 @@ module.exports = {
       title: () => 'İlanınız Reddedildi',
       body: (listingTitle, reason) => 
         reason 
-          ? `${listingTitle} ilanınız reddedildi. Sebep: ${reason}`
+          ? `${listingTitle} ilanınız reddedildi.`
           : `${listingTitle} ilanınız reddedildi.`,
     },
     
@@ -81,8 +81,8 @@ module.exports = {
       title: () => '⚠️ Hesabınız Askıya Alındı',
       body: (reason, duration) => 
         duration
-          ? `Hesabınız ${duration} süreyle askıya alındı. Sebep: ${reason}`
-          : `Hesabınız askıya alındı. Sebep: ${reason}`,
+          ? `Hesabınız ${duration} süreyle askıya alındı.`
+          : `Hesabınız askıya alındı.`,
     },
     
     // Yeni özellik duyurusu
