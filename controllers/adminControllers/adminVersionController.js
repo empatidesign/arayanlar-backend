@@ -34,8 +34,10 @@ const getAllVersions = async (req, res) => {
     const query = `
       SELECT 
         id,
-        current_version,
-        minimum_version,
+        current_version_ios,
+        minimum_version_ios,
+        current_version_android,
+        minimum_version_android,
         force_update,
         update_message,
         download_url_android,
@@ -68,8 +70,10 @@ const getAllVersions = async (req, res) => {
 const createVersion = async (req, res) => {
   try {
     const {
-      current_version,
-      minimum_version,
+      current_version_ios,
+      minimum_version_ios,
+      current_version_android,
+      minimum_version_android,
       force_update,
       update_message,
       download_url_android,
@@ -78,10 +82,10 @@ const createVersion = async (req, res) => {
     } = req.body;
 
     // Gerekli alanları kontrol et
-    if (!current_version || !minimum_version) {
+    if (!current_version_ios || !minimum_version_ios || !current_version_android || !minimum_version_android) {
       return res.status(400).json({
         success: false,
-        message: 'Geçerli versiyon ve minimum versiyon gereklidir'
+        message: 'iOS ve Android için geçerli versiyon ve minimum versiyon gereklidir'
       });
     }
 
@@ -92,8 +96,10 @@ const createVersion = async (req, res) => {
 
     const query = `
       INSERT INTO app_versions (
-        current_version,
-        minimum_version,
+        current_version_ios,
+        minimum_version_ios,
+        current_version_android,
+        minimum_version_android,
         force_update,
         update_message,
         download_url_android,
@@ -101,13 +107,15 @@ const createVersion = async (req, res) => {
         is_active,
         created_at,
         updated_at
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, NOW(), NOW())
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW(), NOW())
       RETURNING id
     `;
 
     const values = [
-      current_version,
-      minimum_version,
+      current_version_ios,
+      minimum_version_ios,
+      current_version_android,
+      minimum_version_android,
       force_update || false,
       update_message || '',
       download_url_android || '',
@@ -138,8 +146,10 @@ const updateVersion = async (req, res) => {
   try {
     const { id } = req.params;
     const {
-      current_version,
-      minimum_version,
+      current_version_ios,
+      minimum_version_ios,
+      current_version_android,
+      minimum_version_android,
       force_update,
       update_message,
       download_url_android,
@@ -154,20 +164,24 @@ const updateVersion = async (req, res) => {
 
     const query = `
       UPDATE app_versions SET
-        current_version = $1,
-        minimum_version = $2,
-        force_update = $3,
-        update_message = $4,
-        download_url_android = $5,
-        download_url_ios = $6,
-        is_active = $7,
+        current_version_ios = $1,
+        minimum_version_ios = $2,
+        current_version_android = $3,
+        minimum_version_android = $4,
+        force_update = $5,
+        update_message = $6,
+        download_url_android = $7,
+        download_url_ios = $8,
+        is_active = $9,
         updated_at = NOW()
-      WHERE id = $8
+      WHERE id = $10
     `;
 
     const values = [
-      current_version,
-      minimum_version,
+      current_version_ios,
+      minimum_version_ios,
+      current_version_android,
+      minimum_version_android,
       force_update,
       update_message,
       download_url_android,

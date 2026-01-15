@@ -5,8 +5,10 @@ const getVersionInfo = async (req, res) => {
   try {
     const query = `
       SELECT 
-        current_version,
-        minimum_version,
+        current_version_ios,
+        minimum_version_ios,
+        current_version_android,
+        minimum_version_android,
         force_update,
         update_message,
         download_url_android,
@@ -56,10 +58,20 @@ const checkVersion = async (req, res) => {
       });
     }
     
+    // Platform kontrolü
+    if (platform !== 'ios' && platform !== 'android') {
+      return res.status(400).json({
+        success: false,
+        message: 'Geçersiz platform. ios veya android olmalı'
+      });
+    }
+    
     const query = `
       SELECT 
-        current_version,
-        minimum_version,
+        current_version_ios,
+        minimum_version_ios,
+        current_version_android,
+        minimum_version_android,
         force_update,
         update_message,
         download_url_android,
@@ -85,13 +97,20 @@ const checkVersion = async (req, res) => {
       });
     }
     
+    // Platform'a göre versiyon bilgilerini seç
+    const latestVersion = platform === 'ios' 
+      ? versionInfo.current_version_ios 
+      : versionInfo.current_version_android;
+    
+    const minimumVersion = platform === 'ios'
+      ? versionInfo.minimum_version_ios
+      : versionInfo.minimum_version_android;
+    
     // Versiyon karşılaştırması
     const currentVersionParts = current_version.split('.').map(Number);
-    const latestVersionParts = versionInfo.current_version.split('.').map(Number);
-    const minimumVersionParts = versionInfo.minimum_version.split('.').map(Number);
+    const latestVersionParts = latestVersion.split('.').map(Number);
     
     let updateRequired = false;
-    let forceUpdate = false;
     
     // En son versiyon kontrolü - tüm parçaları karşılaştır
     const maxLength = Math.max(currentVersionParts.length, latestVersionParts.length);
@@ -110,24 +129,19 @@ const checkVersion = async (req, res) => {
       // Eşitse bir sonraki parçaya geç
     }
     
-    // Zorunlu güncelleme kontrolü
-    if (versionInfo.force_update) {
-      const minMaxLength = Math.max(currentVersionParts.length, minimumVersionParts.length);
-      for (let i = 0; i < minMaxLength; i++) {
-        const current = currentVersionParts[i] || 0;
-        const minimum = minimumVersionParts[i] || 0;
-        
-        if (current < minimum) {
-          forceUpdate = true;
-          break;
-        } else if (current > minimum) {
-          // Mevcut versiyon minimum versiyondan yeni, zorunlu güncelleme gerekmez
-          forceUpdate = false;
-          break;
-        }
-        // Eşitse bir sonraki parçaya geç
-      }
-    }
+    // Zorunlu güncelleme kontrolü - sadece force_update flag'ine bak
+    // Eğer güncelleme gerekiyorsa VE force_update açıksa, zorunlu güncelleme yap
+    const forceUpdate = updateRequired && versionInfo.force_update;
+    
+    console.log('Versiyon kontrolü:', {
+      platform,
+      current_version,
+      latestVersion,
+      minimumVersion,
+      updateRequired,
+      forceUpdate,
+      force_update_flag: versionInfo.force_update
+    });
     
     const downloadUrl = platform === 'ios' ? versionInfo.download_url_ios : versionInfo.download_url_android;
     
@@ -136,10 +150,11 @@ const checkVersion = async (req, res) => {
       data: {
         update_required: updateRequired,
         force_update: forceUpdate,
-        current_version: versionInfo.current_version,
-        minimum_version: versionInfo.minimum_version,
+        current_version: latestVersion,
+        minimum_version: minimumVersion,
         message: versionInfo.update_message,
-        download_url: downloadUrl
+        download_url: downloadUrl,
+        platform: platform
       }
     });
     
