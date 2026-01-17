@@ -1,8 +1,8 @@
 const rateLimit = require('express-rate-limit');
 
 const generalLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 dakika
-  max: 1500, // IP başına maksimum 100 istek (500'den düşürüldü)
+  windowMs: 5 * 60 * 1000, // 5 dakika
+  max: 3000, // IP başına maksimum 3000 istek
   message: {
     error: 'Çok fazla istek gönderildi, lütfen daha sonra tekrar deneyin'
   },
