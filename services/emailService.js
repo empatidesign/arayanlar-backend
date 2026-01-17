@@ -184,7 +184,7 @@ class EmailService {
         count: 1,
         firstAttempt: now
       });
-      return { allowed: true, remainingAttempts: 2 };
+      return { allowed: true, remainingAttempts: 9 };
     }
     
     // 10 dakika geçtiyse sıfırla
@@ -193,11 +193,11 @@ class EmailService {
         count: 1,
         firstAttempt: now
       });
-      return { allowed: true, remainingAttempts: 2 };
+      return { allowed: true, remainingAttempts: 9 };
     }
     
-    // 3 deneme hakkı kontrolü
-    if (attemptData.count >= 3) {
+    // 10 deneme hakkı kontrolü
+    if (attemptData.count >= 10) {
       const waitTime = Math.ceil((10 * 60 * 1000 - (now - attemptData.firstAttempt)) / 60000); // dakika cinsinden
       return { 
         allowed: false, 
@@ -210,7 +210,7 @@ class EmailService {
     attemptData.count++;
     return { 
       allowed: true, 
-      remainingAttempts: 3 - attemptData.count 
+      remainingAttempts: 10 - attemptData.count 
     };
   }
 

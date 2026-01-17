@@ -91,11 +91,7 @@ io.use(async (socket, next) => {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     socket.userId = decoded.id;
     
-    console.log('🔐 Socket authenticated:', {
-      userId: decoded.id,
-      email: decoded.email,
-      socketId: socket.id
-    });
+
     
     next();
   } catch (error) {

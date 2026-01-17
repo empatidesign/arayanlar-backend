@@ -14,6 +14,11 @@ SET
     minimum_version_android = minimum_version
 WHERE current_version_ios IS NULL;
 
--- Eski alanları kaldır (opsiyonel - yorum satırında bırakıyorum)
+-- Eski alanları NULL yapılabilir hale getir (NOT NULL constraint'i kaldır)
+ALTER TABLE app_versions 
+ALTER COLUMN current_version DROP NOT NULL,
+ALTER COLUMN minimum_version DROP NOT NULL;
+
+-- Veya eski alanları tamamen kaldırmak isterseniz (önerilir):
 -- ALTER TABLE app_versions DROP COLUMN IF EXISTS current_version;
 -- ALTER TABLE app_versions DROP COLUMN IF EXISTS minimum_version;
